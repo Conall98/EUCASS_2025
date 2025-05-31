@@ -7,7 +7,44 @@ Created on Mon May 12 17:50:25 2025
 
 import numpy as np
 import tank_sizing_subroutine as tn
-        
+import pandas as pd
+from mulitple_regression import *
+
+DB = pd.read_excel(r"Lander DB 251 redux (alt).xlsx")
+ssDB = pd.read_excel(r"subsystems database.xlsx")
+
+#%% subsystem predictions
+X = np.array([ssDB["md"], ssDB["mp"], ssDB["mprop"], ssDB["dV"], ssDB["Isp"]]).transpose()
+y = np.array([ssDB["Structure"], ssDB["Propulsion"], ssDB["Power"], ssDB["Avionics"], ssDB["Thermal Protection"], ssDB["Other"]]).transpose()
+#%%
+def modeler(X, y, i):
+    model = linear_model.LinearRegression()
+    model.fit(X, y[:, i])
+    R2 = model.score(X, y[:, i])
+    coefs = model.coef_
+    intercept =  model.intercept_
+    preds = model.predict([X[0]])
+    manual_pred = np.dot(coefs, X[0]) + model.intercept_
+    # print("predicted y", preds)
+    # print("manual_preds", manual_pred)
+    # print("actual y", y[0, i])
+    # print(preds == manual_pred)
+    return coefs, intercept, R2
+
+ss_models = np.zeros([6, 6]) #six row(predictions), five coefficients + one intercept for each pred
+Rs = []
+for i in range(0, 6):
+    coefs, inter, r = modeler(X, y, i)
+    ss_models[i, 0:5] = coefs
+    ss_models[i, 5:6] = inter
+    Rs.append(r)
+    
+str_model = ss_models[0, :]
+prpl_model = ss_models[1, :]
+pow_model = ss_models[2, :]
+avio_model = ss_models[3, :]
+ther_model = ss_models[4, :]
+oth_model = ss_models[5, :]
 #%%
 F1 = tn.Fuel("N2O2-Aerozine", 1442, 903, 1.9, 311)
 F2 = tn.Fuel("LOX/LH2", 1141, 708, 6, 450)
@@ -17,6 +54,7 @@ M1 = tn.material("titanium Ti64", 4540, 880E+6) #asm mat wbe
 M2 = tn.material("Aluminium 6061", 2700, 145E+6) #asm mat web
 M3 = tn.material("CFRP", 1420, 1260E+6) #matweb
 M3 = tn.material("Aluminium 2195", 2710, 590E+6) #makeitfrom.com
+
 
 #%%
 def f1(mp):
@@ -34,20 +72,63 @@ def f3(mp, mprop):
 def AVIO(md):
     return md*0.088
 
+def AVIO2(md, mp, mprop, dV, Isp):
+    X = [md, mp, mprop, dV, Isp]
+    coefs = avio_model[0:5]
+    intercept = avio_model[5]
+    return np.dot(coefs, X) + intercept
+
+
 def STR(md):
     return md*0.276
+
+def STR2(md, mp, mprop, dV, Isp):
+    X = [md, mp, mprop, dV, Isp]
+    coefs = str_model[0:5]
+    intercept = str_model[5]
+    return np.dot(coefs, X) + intercept
+
 
 def POW(md):
     return md*0.076
 
+def POW2(md, mp, mprop, dV, Isp):
+    X = [md, mp, mprop, dV, Isp]
+    coefs = pow_model[0:5]
+    intercept = pow_model[5]
+    return np.dot(coefs, X) + intercept
+
+
 def THER(md):
     return md*0.13
+
+def THER2(md, mp, mprop, dV, Isp):
+    X = [md, mp, mprop, dV, Isp]
+    coefs = ther_model[0:5]
+    intercept = ther_model[5]
+    return np.dot(coefs, X) + intercept
+
 
 def OTH(md):
     return md*0.062
 
+def OTH2(md, mp, mprop, dV, Isp):
+    X = [md, mp, mprop, dV, Isp]
+    coefs = oth_model[0:5]
+    intercept = oth_model[5]
+    return np.dot(coefs, X) + intercept
+
+
 def PROP(md):
     return md*0.337
+
+def PROP2(md, mp, mprop, dV, Isp):
+    X = [md, mp, mprop, dV, Isp]
+    coefs = prpl_model[0:5]
+    intercept = prpl_model[5]
+    return np.dot(coefs, X) + intercept
+
+#%%
 
 def PRPL_Ramos(md, mprop, mp, FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape): #FT = Fuel type (class), T is Thrust WEIGHT Requirement, MR is O/F mixture ratio
     m_prpl, m_tanks, m_engines = tn.PRPL(md, mprop, mp, FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape)
