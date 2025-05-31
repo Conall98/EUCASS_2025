@@ -39,13 +39,13 @@ test_04 = EUC_LH2.routine_Ramos_Cryo_2(2000, 5000, 311)
 vars(test_04)
 test_04.test()    
 #%%
-test_05 = EUC_AZ.routine_Ramos_N2O4(2000, 5000, 301)
+test_05 = EUC_AZ.routine_Ramos_N2O4(4795, 2265, 311)
 vars(test_05)
 test_05.PRPLSN
 test_05.test()    
 
 #%%
-test_06 = EUC_AZ.routine_Isaji_N2O4(2000, 5000, 301)
+test_06 = EUC_AZ.routine_Isaji_N2O4(4795, 2265, 311)
 vars(test_06)
 test_06.PRPLSN
 test_06.test()

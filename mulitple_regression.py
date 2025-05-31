@@ -62,14 +62,14 @@ def plotter(x, y, DB):
     # ax.scatter(a, b, c)
     return RMS
 #%%
-# X = np.array([DB["mp"], DB["mprop"], DB["1 stage Isp"], DB["dV"]]).transpose()
-# y =  DB["md"]
+X = np.array([DB["mp"], DB["mprop"], DB["1 stage Isp"], DB["dV"]]).transpose()
+y =  DB["md"]
 # ME = plotter(X, y, DB)
 # #%%
 
 
-# regr = linear_model.LinearRegression()
-# regr.fit(X, y)
+regr = linear_model.LinearRegression()
+regr.fit(X, y)
 
-# md_pred = regr.predict([X])
+md_pred = regr.predict([X])
 
