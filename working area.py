@@ -20,6 +20,7 @@ import EUCASS_LOXLH2 as EUC_LH2
 import EUCASS_N2O4AZ as EUC_AZ
 import pandas as pd
 from mulitple_regression import *
+import validation as V
 #%% Routine_A test
 test_01 = EUC_LH2.routine_A(2000, 5000, 311)
 vars(test_01)
@@ -72,16 +73,18 @@ y_pred4 = []
 x_star = []
 for i in range(0, len(x)):
     if x[i]>2:
-        y_pred.append(EUC_AZ.routine_Ramos_N2O4(x[i], dv[i], Isp[i]).md)
-        y_pred2.append(EUC_AZ.routine_Isaji_N2O4(x[i], dv[i], Isp[i]).md)
+        # y_pred.append(EUC_AZ.routine_Ramos_N2O4(x[i], dv[i], Isp[i]).md)
+        # y_pred2.append(EUC_AZ.routine_Isaji_N2O4(x[i], dv[i], Isp[i]).md)
         y_star.append(y[i])
         x_star.append(x[i])
   
 
 
-er1 = NRMS(y_star, y_pred)*100
-er2 = NRMS(y_star, y_pred2)*100
+# er1 = NRMS(y_star, y_pred)*100
+# er2 = NRMS(y_star, y_pred2)*100
 
+er1 = 1
+er2 = 2
 
   
 
@@ -108,3 +111,34 @@ y =  DB["md"]
 ME = plotter(X, y, DB)
 plt.plot(x_run, y_run, label = "trendline", color = "black", linestyle = "--")
 plt.legend()
+
+
+#%% validation script
+
+LM_pred = EUC_AZ.routine_Isaji_N2O4(5295, 2265, 311)
+LM_pred2 = EUC_AZ.routine_Ramos_N2O4(5295, 2265, 311)
+# LM_pred3 = EUC_AZ.routine_Isaji_N2O4(5295, 2265, 311)
+
+
+LM_test = mf.L("LM", 5295, 2373, 8780, 16447, dv=2265, isp=311, STR = 460, PRPLSN = 495, POW = 366, AVIO = 29, THER = 404, OTH = 273)
+
+V.V(LM_test, LM_pred, "Isaji-N204")
+V.V(LM_test, LM_pred2, "Ramos-N204")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

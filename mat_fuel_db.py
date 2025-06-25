@@ -60,7 +60,7 @@ class L:
 
 F1 = Fuel("N2O2-Aerozine", 1442, 903, 1.9, 311)
 F2 = Fuel("LOX/LH2", 1141, 708, 6, 450)
-F3 = Fuel("LOX/LCH4", 1141, 657, 6, 350)
+F3 = Fuel("LOX/LCH4", 1141, 657, 3.5, 350)
 
 M1 = material("titanium Ti64", 4540, 880E+6) #asm mat wbe
 M2 = material("Aluminium 6061", 2700, 145E+6) #asm mat web
