@@ -20,122 +20,39 @@ import EUCASS_LOXLH2 as EUC_LH2
 import EUCASS_N2O4AZ as EUC_AZ
 import pandas as pd
 from mulitple_regression import *
-import validation as V
 #%% Routine_A test
-test_01 = EUC_LH2.routine_A(2000, 5000, 311)
-vars(test_01)
-test_01.test()
-#%%
-test_02 = EUC_LH2.routine_Ramos_Cryo(2000, 5000, 311)
-vars(test_02)
-test_02.test()
-
-#%%
-test_03 = EUC_LH2.routine_Isaji_cryo(2000, 5000, 311)
-vars(test_03)
-test_03.test()    
-
-#%%
-test_04 = EUC_LH2.routine_Ramos_Cryo_2(2000, 5000, 311)
-vars(test_04)
-test_04.test()    
-#%%
-test_05 = EUC_AZ.routine_Ramos_N2O4(2000, 5000, 301)
-vars(test_05)
-test_05.PRPLSN
-test_05.test()    
-
-#%%
-test_06 = EUC_AZ.routine_Isaji_N2O4(2000, 5000, 301)
-vars(test_06)
-test_06.PRPLSN
-test_06.test()
 
 
 #%%
-DB = pd.read_excel(r"C:\Users\cdepaor2\Desktop\PhD\01_Projects\EUCASS 2025\EUCASS_code\Lander DB 251 redux (alt).xlsx")
+DB = pd.read_excel(r"Lander DB 251 redux (alt).xlsx")
+ssDB = pd.read_excel(r"subsystems database.xlsx")
+
+#%% subsystem predictions
+X = np.array([ssDB["md"], ssDB["mp"], ssDB["mprop"], ssDB["dV"], ssDB["Isp"]]).transpose()
+y = np.array([ssDB["Structure"], ssDB["Propulsion"], ssDB["Power"], ssDB["Avionics"], ssDB["Thermal Protection"], ssDB["Other"]]).transpose()
+#%%
+def modeler(X, y, i):
+    model = linear_model.LinearRegression()
+    model.fit(X, y[:, i])
+    R2 = model.score(X, y[:, i])
+    coefs = model.coef_
+    intercept =  model.intercept_
+    preds = model.predict([X[0]])
+    manual_pred = np.dot(coefs, X[0]) + model.intercept_
+    # print("predicted y", preds)
+    # print("manual_preds", manual_pred)
+    # print("actual y", y[0, i])
+    # print(preds == manual_pred)
+    return coefs, intercept, R2
 
 #%%
-x = DB["mp"]
-y = DB["md"]
-dv = DB["dV"]
-Isp = DB["1 stage Isp"]
-x_run = np.linspace(0, 5000, 100)
-y_run = []
-for i in range(0, 100):
-    y_run.append(ESR.f1(x_run[i]))
-
-y_star = []
-y_pred = []
-y_pred2 = []
-y_pred3 = []
-y_pred4 = []
-x_star = []
-for i in range(0, len(x)):
-    if x[i]>2:
-        # y_pred.append(EUC_AZ.routine_Ramos_N2O4(x[i], dv[i], Isp[i]).md)
-        # y_pred2.append(EUC_AZ.routine_Isaji_N2O4(x[i], dv[i], Isp[i]).md)
-        y_star.append(y[i])
-        x_star.append(x[i])
-  
-
-
-# er1 = NRMS(y_star, y_pred)*100
-# er2 = NRMS(y_star, y_pred2)*100
-
-er1 = 1
-er2 = 2
-
-  
-
-plt.figure()
-plt.scatter(x, y, label = "data", color = "blue")
-plt.plot(x_run, y_run, label = "trendline", color = "black", linestyle = "--")
-
-plt.scatter(x_star, y_pred, label = "Ramos N2O4. NRMS: {}%".format(er1), color = "pink")
-plt.scatter(x_star, y_pred2, label = "Isaji N2O4. NRMS: {}%".format(er2), color = "violet")
-
-
-
-plt.grid()
-plt.xlabel("payload mass [kg]")
-plt.ylabel("dry mass [kg]")
-plt.title("New Algos predicting the data")
-plt.legend()
-# plt.scatter(x, y_pred)
-
-#%%
-
-X = np.array([DB["mp"], DB["mprop"], DB["1 stage Isp"], DB["dV"]]).transpose()
-y =  DB["md"]
-ME = plotter(X, y, DB)
-plt.plot(x_run, y_run, label = "trendline", color = "black", linestyle = "--")
-plt.legend()
-
-
-#%% validation script
-
-LM_pred = EUC_AZ.routine_Isaji_N2O4(5295, 2265, 311)
-LM_pred2 = EUC_AZ.routine_Ramos_N2O4(5295, 2265, 311)
-# LM_pred3 = EUC_AZ.routine_Isaji_N2O4(5295, 2265, 311)
-
-
-LM_test = mf.L("LM", 5295, 2373, 8780, 16447, dv=2265, isp=311, STR = 460, PRPLSN = 495, POW = 366, AVIO = 29, THER = 404, OTH = 273)
-
-V.V(LM_test, LM_pred, "Isaji-N204")
-V.V(LM_test, LM_pred2, "Ramos-N204")
-
-
-
-
-
-
-
-
-
-
-
-
+ss_models = np.zeros([6, 6]) #six row(predictions), five coefficients + one intercept for each pred
+Rs = []
+for i in range(0, 6):
+    coefs, inter, r = modeler(X, y, i)
+    ss_models[i, 0:5] = coefs
+    ss_models[i, 5:6] = inter
+    Rs.append(r)
 
 
 

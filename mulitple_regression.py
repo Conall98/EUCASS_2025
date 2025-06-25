@@ -64,12 +64,22 @@ def plotter(x, y, DB):
 #%%
 # X = np.array([DB["mp"], DB["mprop"], DB["1 stage Isp"], DB["dV"]]).transpose()
 # y =  DB["md"]
-# ME = plotter(X, y, DB)
-# #%%
+# # ME = plotter(X, y, DB)
+# # #%%
 
 
 # regr = linear_model.LinearRegression()
 # regr.fit(X, y)
 
 # md_pred = regr.predict([X])
+
+
+
+# #%%
+
+# model
+
+
+
+
 
