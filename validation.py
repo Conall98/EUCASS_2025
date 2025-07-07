@@ -164,10 +164,10 @@ def global_errors(DB):
         
         # pred = EUC_LH2.routine_Ramos_Cryo(mp, dV, Isp)
         # pred = EUC_LH2.routine_Isaji_cryo(mp, dV, Isp)
-        # pred = EUC_LH2.routine_Ramos_Cryo_lessloop(mp, dV, Isp)
+        pred = EUC_LH2.routine_Ramos_Cryo_lessloop(mp, dV, Isp)
         
         ########### for lch4 ###################
-        pred = EUC_LH2.routine_Ramos_Cryo_CH4(mp, dV, Isp)
+        # pred = EUC_LH2.routine_Ramos_Cryo_CH4(mp, dV, Isp)
         
         
         # print(pred.test())
