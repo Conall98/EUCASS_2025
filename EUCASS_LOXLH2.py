@@ -44,6 +44,7 @@ def routine_Ramos_Cryo(mp, dv, Isp): #uses the ramos propulsion sizing routine
     mprop_i = [mprop_0]
     
     FT = mf.F2 #loxlh2
+    Isp = FT.Isp
     TWR = 1.72 # same as Apollo
     tank_material = mf.M1 #titanium
     n = 4
@@ -96,6 +97,7 @@ def routine_Ramos_Cryo_lessloop(mp, dv, Isp): #uses the ramos propulsion sizing 
     mprop_i = [mprop_0]
     
     FT = mf.F2 #loxlh2
+    Isp = FT.Isp
     TWR = 1.72 # same as Apollo
     tank_material = mf.M1 #titanium
     n = 4
@@ -109,25 +111,28 @@ def routine_Ramos_Cryo_lessloop(mp, dv, Isp): #uses the ramos propulsion sizing 
     er = 1
     lander = mf.L("Test lander 1", mp, md_0, mprop_0, mt_0, dv, Isp) 
     a = lander.STR = ESR.STR_mp(mp)
-    c = lander.POW = ESR.POW(md_i[i])
-    d = lander.AVIO = ESR.AVIO(md_i[i])
-    e = lander.THER = ESR.THER(mt_0)
+    
     f = lander.OTH = ESR.OTH(mp)
     
     while er > tol:
         
 
         b = lander.PRPLSN = ESR.PRPL_Ramos(md_i[i], mprop_i[i], mp, FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape)
+        c = lander.POW = ESR.POW(md_i[i])
+        d = lander.AVIO = ESR.AVIO(md_i[i])
+        e = lander.THER = ESR.THER(lander.mt)
         
-        
-
-        
+        print(i)
         md_i1 = sum([a, b, c, d, e, f])
         mprop_i1 = ESR.f2(mp, md_i1, dv, Isp)
         
         md_i.append(md_i1)
         mprop_i.append(mprop_i1)
-        er = 1 - md_i1/md_i[i]
+        # print("{0}/{1}".format(md_i1, md_i[i]))
+        # er = 1 - md_i1/md_i[i]
+        er = 1 - md_i[i]/md_i1
+        # print(np.round(md_0, 3), np.round(md_i[i], 3), np.round(md_i1, 3))
+        # print(md_i1)
         i = i+1
         lander.md = md_i[-1:]
         lander.mprop = mprop_i[-1:]
@@ -151,6 +156,7 @@ def routine_Ramos_Cryo_CH4(mp, dv, Isp): #uses the ramos propulsion sizing routi
     mprop_i = [mprop_0]
     
     FT = mf.F3
+    Isp = FT.Isp
     # T = mf.F3 #loxlch4
     TWR = 1.72 # same as Apollo
     tank_material = mf.M1 #titanium
@@ -164,17 +170,17 @@ def routine_Ramos_Cryo_CH4(mp, dv, Isp): #uses the ramos propulsion sizing routi
     tol = 0.01
     er = 1
     lander = mf.L("Test lander 1", mp, md_0, mprop_0, mt_0, dv, Isp) 
-    a = lander.STR = ESR.STR_mp(mp)
-    c = lander.POW = ESR.POW(md_i[i])
-    d = lander.AVIO = ESR.AVIO(md_i[i])
-    e = lander.THER = ESR.THER(mt_0)
-    f = lander.OTH = ESR.OTH(mp)
+    
     
     while er > tol:
         
 
         b = lander.PRPLSN = ESR.PRPL_Ramos(md_i[i], mprop_i[i], mp, FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape)
-        
+        a = lander.STR = ESR.STR_mp(mp)
+        c = lander.POW = ESR.POW(md_i[i])
+        d = lander.AVIO = ESR.AVIO(md_i[i])
+        e = lander.THER = ESR.THER(lander.mt)
+        f = lander.OTH = ESR.OTH(mp)
 
         
         md_i1 = sum([a, b, c, d, e, f])
@@ -184,8 +190,10 @@ def routine_Ramos_Cryo_CH4(mp, dv, Isp): #uses the ramos propulsion sizing routi
         mprop_i.append(mprop_i1)
         er = 1 - md_i1/md_i[i]
         i = i+1
+        print(i)
         lander.md = md_i[-1:]
         lander.mprop = mprop_i[-1:]
+        # print(lander.mprop)
         lander.mt = float(np.array(md_i[-1:])) + float(np.array(mprop_i[-1:])) + float(np.array(mp))
         if i>100:
             print("divergence")
@@ -327,7 +335,7 @@ def routine_Ramos_Cryo_2(mp, dv, Isp): #uses the ramos propulsion sizing routine
         b = lander.PRPLSN = ESR.PRPL_Ramos(md_i[i], mprop_i[i], mp, FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape)
         md_i1 = sum([a, b, c, d, e, f])
         mprop_i1 = ESR.f2(mp, md_i1, dv, Isp)
-        print(i)
+        # print(i)
         md_i.append(md_i1)
         mprop_i.append(mprop_i1)
         er = 1 - md_i1/md_i[i]

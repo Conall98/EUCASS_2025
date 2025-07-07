@@ -23,6 +23,8 @@ def V_ss_plotter(data, pred, testname): #two lander objects
     dat = [data.STR, data.PRPLSN, data.AVIO, data.POW, data.THER, data.OTH]
     prd = [pred.STR, pred.PRPLSN, pred.AVIO, pred.POW, pred.THER, pred.OTH]
     
+    dat2 = [data.mt, data.md, data.mprop]
+    prd2 = [pred.mt, pred.md, pred.mprop]
 
 # Set category labels at adjusted positions
     x_positions = [0, 1, 
@@ -57,6 +59,36 @@ def V_ss_plotter(data, pred, testname): #two lander objects
     
     plt.tight_layout()
     plt.show()
+    
+# Set category labels at adjusted positions
+    x_positions2 = [0, 1, 
+                   3, 4, 
+                   6, 7]
+    j = 0
+    k = 0
+    l = 0
+    plt.figure()
+    while k < len(x_positions2):
+        # print(x_positions[k])
+        plt.bar(x_positions2[k], dat2[j], width=1, align='center', color = "blue", label = "data")
+        k=k+1
+        # print(x_positions[k])
+        plt.bar(x_positions2[k], prd2[j], width=1, align='center', color = "orange", label = "prediction")
+        if j == 0:
+            plt.legend()
+        k=k+1
+        j = j + 1
+
+
+    x_labels = ["$m_t$", "$m_d$", "$m_{prop}$", ]
+    plt.xticks([0.5, 3.5, 6.5], x_labels)
+    
+    plt.xlabel('Major mass properties')
+    plt.ylabel('Mass [kg]')
+    plt.title('Sizing algorithm validation: {}'.format(testname))
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    
+    plt.tight_layout()    
 #%%
 def NRMS(sample, prediction):
     errors = []
@@ -203,10 +235,11 @@ def V_all_db(DB):
 # # LM_pred = EUC_AZ.routine_Isaji_N2O4_MLR(5295, 2265, 311)
 # # LM_pred = EUC_AZ.routine_I_N2O4_MLR_iter(5295, 2265, 311)
 # # LM_pred = EUC_AZ.routine_stat_MLR_iter(5295, 2265, 311)
-# LM_pred = EUC_AZ.routine_all_linear(5295, 2265, 311)
-# LM_test = mf.L("LM", 5295, 2373, 8780, 16447, dv=2265, isp=311, STR = 460, PRPLSN = 495, POW = 366, AVIO = 29, THER = 404, OTH = 273)
 
-# # V_ss_plotter(LM_test, LM_pred, "test")
+LM_pred = EUC_AZ.routine_Ramos_N2O4(5295, 2265, 311)
+LM_test = mf.L("LM", 5295, 2373, 8780, 16447, dv=2265, isp=311, STR = 460, PRPLSN = 495, POW = 366, AVIO = 29, THER = 404, OTH = 273)
+
+V_ss_plotter(LM_test, LM_pred, "Apollo 17")
 # # AA = V_ers(LM_test, LM_pred2, "ers")
 # BB =V_ers_2(LM_test, LM_pred2, "ers")
 

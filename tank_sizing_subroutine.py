@@ -216,7 +216,7 @@ def PRPL(md,
     v_fuel = m_fuel/rho_fuel
     v_lox = m_lox/rho_lox
     v_prop = v_lox+v_fuel
-    print("here", FT.name, FT.MR, v_fuel, m_fuel)
+    # print("here", FT.name, FT.MR, v_fuel, m_fuel)
     P = Pressure #bar
     V = v_prop + v_lox
     R = 8.314 #J/mol/K

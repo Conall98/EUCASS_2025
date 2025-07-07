@@ -31,20 +31,20 @@ def modeler(X, y, i):
     # print(preds == manual_pred)
     return coefs, intercept, R2
 
-ss_models = np.zeros([6, 6]) #six row(predictions), five coefficients + one intercept for each pred
-Rs = []
-for i in range(0, 6):
-    coefs, inter, r = modeler(X, y, i)
-    ss_models[i, 0:5] = coefs
-    ss_models[i, 5:6] = inter
-    Rs.append(r)
+# ss_models = np.zeros([6, 6]) #six row(predictions), five coefficients + one intercept for each pred
+# Rs = []
+# for i in range(0, 6):
+#     coefs, inter, r = modeler(X, y, i)
+#     ss_models[i, 0:5] = coefs
+#     ss_models[i, 5:6] = inter
+#     Rs.append(r)
     
-str_model = ss_models[0, :]
-prpl_model = ss_models[1, :]
-pow_model = ss_models[2, :]
-avio_model = ss_models[3, :]
-ther_model = ss_models[4, :]
-oth_model = ss_models[5, :]
+# str_model = ss_models[0, :]
+# prpl_model = ss_models[1, :]
+# pow_model = ss_models[2, :]
+# avio_model = ss_models[3, :]
+# ther_model = ss_models[4, :]
+# oth_model = ss_models[5, :]
 #%%
 F1 = tn.Fuel("N2O2-Aerozine", 1442, 903, 1.9, 311)
 F2 = tn.Fuel("LOX/LH2", 1141, 708, 6, 450)
@@ -70,7 +70,7 @@ def f3(mp, mprop):
 #%% subsystem functions 
 
 def AVIO(md):
-    return md*0.088
+    return md*0.0774
 
 def AVIO2(md, mp, mprop, dV, Isp):
     X = [md, mp, mprop, dV, Isp]
@@ -82,6 +82,9 @@ def AVIO2(md, mp, mprop, dV, Isp):
 def STR(md):
     return md*0.276
 
+def STR_mp(mp):
+    return mp*0.0747
+
 def STR2(md, mp, mprop, dV, Isp):
     X = [md, mp, mprop, dV, Isp]
     coefs = str_model[0:5]
@@ -90,7 +93,7 @@ def STR2(md, mp, mprop, dV, Isp):
 
 
 def POW(md):
-    return md*0.076
+    return md*0.018+311
 
 def POW2(md, mp, mprop, dV, Isp):
     X = [md, mp, mprop, dV, Isp]
@@ -99,8 +102,8 @@ def POW2(md, mp, mprop, dV, Isp):
     return np.dot(coefs, X) + intercept
 
 
-def THER(md):
-    return md*0.13
+def THER(mt_0):
+    return mt_0*0.0197
 
 def THER2(md, mp, mprop, dV, Isp):
     X = [md, mp, mprop, dV, Isp]
@@ -109,8 +112,8 @@ def THER2(md, mp, mprop, dV, Isp):
     return np.dot(coefs, X) + intercept
 
 
-def OTH(md):
-    return md*0.062
+def OTH(mp):
+    return mp*0.0316
 
 def OTH2(md, mp, mprop, dV, Isp):
     X = [md, mp, mprop, dV, Isp]
@@ -119,8 +122,8 @@ def OTH2(md, mp, mprop, dV, Isp):
     return np.dot(coefs, X) + intercept
 
 
-def PROP(md):
-    return md*0.337
+def PROP(mt_0):
+    return mt_0*0.044
 
 def PROP2(md, mp, mprop, dV, Isp):
     X = [md, mp, mprop, dV, Isp]
