@@ -55,7 +55,33 @@ class L:
             return "test passed. margin: {0}".format(margin)
         else:
             return "test failed"
+class L_isaji:
+    def __init__(self, name, mp, md, mprop, mt, dv=None, isp=None, STRTPS = None, PRPLSN = None, POW = None, AVIO = None, ECLSS = None, OTH = None):
+        self.name = name
+        self.mp = np.round(mp, 2)
+        self.md = np.round(md, 2)
+        self.mprop = np.round(mprop, 2)
+        self.mt = np.round(mt, 2)
+        self.dv = dv
+        self.Isp = isp
+        self.STRTPS = STRTPS
+        self.PRPLSN = PRPLSN
+        self.POW = POW
+        self.AVIO = AVIO
+        self.ECLSS = ECLSS
+        self.OTH = OTH
         
+    def test(self):
+        mp = self.mp
+        md = self.md
+        dv = self.dv
+        Isp = self.Isp
+        mprop = self.mprop
+        if mprop > (mp+md)*(np.exp(dv/(Isp*9.81)) - 1):
+            margin = mprop/((mp+md)*(np.exp(dv/(Isp*9.81)) - 1))
+            return "test passed. margin: {0}".format(margin)
+        else:
+            return "test failed"
 #%%
 
 F1 = Fuel("N2O2-Aerozine", 1442, 903, 1.9, 311)

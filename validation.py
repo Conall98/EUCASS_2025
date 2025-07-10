@@ -139,6 +139,18 @@ def V_ers_2(data, pred, testname):
 # LM_test = mf.L("LM", 5295, 2373, 8780, 16447, dv=2265, isp=311, STR = 460, PRPLSN = 495, POW = 366, AVIO = 29, THER = 404, OTH = 273)
 # V_ers_2(LM_test, LM_pred, "all")
 
+def V_ers_2_isaji(data, pred, testname):
+    dat = [data.mt, data.md, data.mprop, data.mp, data.STRTPS, data.PRPLSN, data.AVIO, data.POW, data.ECLSS, data.OTH]
+    prd = [pred.mt, pred.md, pred.mprop, pred.mp, pred.STRTPS, pred.PRPLSN, pred.AVIO, pred.POW, pred.ECLSS, pred.OTH]
+    errors = []
+    for k in range(0, len(dat)): #error magnitude of each quantity wrt data in %
+        # print("here", len(prd[k]))
+        erm = np.round(float((prd[k] - dat[k])/(dat[k])), 4)*100        
+        errors.append(erm)
+    
+
+    return np.array(errors)
+
 #%%
 def global_errors(DB):
     glob_ers = np.zeros([10,10])
@@ -223,23 +235,36 @@ def V_all_db(DB):
         errors.append(ers_2)
     return errors
     
-
 #%%
-
-# AA = DB_2_class(DB, 0)
-# AA = V_all_db(DB)
-
+def Isaji_comparator(L1):
+    
+    L_isaji = mf.L_isaji(L1.name, L1.mp, L1.md, L1.mprop, L1.mt, L1.dv, L1.Isp, L1.STR+L1.THER, L1.PRPLSN, L1.POW, L1.AVIO, 1, L1.OTH)
+    return L_isaji
+    # print(L_isaji)
 #%%
+CC = Isaji_comparator(LM_pred)
+#%% #His own inputs from the paper
+mp = 4795 #he has a different payload concept: he has 133, but I consider payload to be the whole ascent stage
+dV = 2104 #table 6
+Isp = 300 #table 2
+# LM_pred = EUC_AZ.routine_all_linear(mp, dV, Isp) # the sizing algorithm under investigation 
+LM_pred = EUC_AZ.routine_stat_MLR_noloop(mp, dV, Isp)
+# LM_pred = EUC_AZ.routine_stat_MLR_iter(mp, dV, Isp)
+# LM_pred = EUC_AZ.routine_I_N2O4_MLR_iter(mp, dV, Isp)
+# LM_pred = EUC_AZ.routine_Isaji_N2O4_MLR(mp, dV, Isp)
+# LM_pred = EUC_AZ.routine_Isaji_N2O4(mp, dV, Isp)
+# LM_pred = EUC_AZ.routine_Ramos_N2O4(mp, dV, Isp)
+# LM_pred = EUC_AZ.routine_Ramos_N2O4_iter(mp, dV, Isp)
 
-# # LM_pred = EUC_AZ.routine_Isaji_N2O4(5295, 2265, 311)
-# # LM_pred = EUC_AZ.routine_Isaji_N2O4_MLR(5295, 2265, 311)
-# # LM_pred = EUC_AZ.routine_I_N2O4_MLR_iter(5295, 2265, 311)
-# # LM_pred = EUC_AZ.routine_stat_MLR_iter(5295, 2265, 311)
 
-LM_pred = EUC_AZ.routine_Ramos_N2O4(5295, 2265, 311)
+
+
 LM_test = mf.L("LM", 5295, 2373, 8780, 16447, dv=2265, isp=311, STR = 460, PRPLSN = 495, POW = 366, AVIO = 29, THER = 404, OTH = 273)
 
-V_ss_plotter(LM_test, LM_pred, "Apollo 17")
+LM_pred_isaji = Isaji_comparator(LM_pred)
+LM_test_isaji = Isaji_comparator(mf.L("LM_isaji", 4795, 2217, 8880, 16371, dv=2104, isp=311, STR = 460, PRPLSN = 495, POW = 366, AVIO = 29, THER = 404, OTH = 273))
+
+# V_ss_plotter(LM_test, LM_pred, "Apollo 17")
 # # AA = V_ers(LM_test, LM_pred2, "ers")
-# BB =V_ers_2(LM_test, LM_pred2, "ers")
+BB =V_ers_2_isaji(LM_test_isaji, LM_pred_isaji, "ers")
 
