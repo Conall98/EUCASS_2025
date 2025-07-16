@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue May 20 15:03:19 2025
+Created on Tue Jul 15 10:59:27 2025
 
 @author: cdepaor
 """
+import os
+import sys
+script_dir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(script_dir)
+
 import numpy as np
+import pandas as pd
 #%%
 
 class material():
@@ -84,6 +90,19 @@ class L_isaji:
         else:
             return "test failed"
 #%%
+######## Formatting Functions #########
+def Isaji_comparator(L1): #converts ORLA landers into Isaji Landers
+    L = L_isaji(L1.name, L1.mp, L1.md, L1.mprop, L1.mt, L1.dv, L1.Isp, L1.STR+L1.THER, L1.PRPLSN, L1.POW, L1.AVIO, 1, L1.OTH)
+    return L
+    # print(L_isaji)
+    
+def DB_2_class(DB, i):
+    mt = DB["md"][i] + DB["mprop"][i] + DB["mp"][i]
+    lander_data = L(DB["Lander"][i], DB["mp"][i], DB["md"][i], DB["mprop"][i], mt, DB["dV"][i], DB["Isp"][i], 
+                       DB["Structure"][i],DB["Propulsion"][i],DB["Power"][i],DB["Avionics"][i],DB["Thermal Protection"][i],DB["Other"][i])
+    
+    return lander_data    
+#%%
 
 F1 = Fuel("N2O2-Aerozine", 1442, 903, 1.9, 311)
 F2 = Fuel("LOX/LH2", 1141, 708, 6, 450)
@@ -94,6 +113,9 @@ M2 = material("Aluminium 6061", 2700, 145E+6) #asm mat web
 M3 = material("CFRP", 1420, 1260E+6) #matweb
 M3 = material("Aluminium 2195", 2710, 590E+6) #makeitfrom.com
 
+#%%
+DB_Landers = pd.read_excel(r"Lander DB 251 redux (alt).xlsx")
+DB_ss = pd.read_excel(r"subsystems database.xlsx")
 
-
-
+LM_test_isaji = L("LM_isaji", 4795, 2217, 8880, 16371, dv=2104, isp=311, STR = 460, PRPLSN = 495, POW = 366, AVIO = 29, THER = 404, OTH = 273)
+LM_test = L("LM", 5295, 2373, 8780, 16447, dv=2265, isp=311, STR = 460, PRPLSN = 495, POW = 366, AVIO = 29, THER = 404, OTH = 273)
