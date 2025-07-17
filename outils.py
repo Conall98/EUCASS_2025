@@ -79,6 +79,8 @@ def AVIO2(X):
     intercept = avio_model[5]
     return np.dot(coefs, X) + intercept
 
+def AVIO_isaji(Dsm, Ncrw, md, mpower): #DSM IS MISSION DURATION
+    return ((Dsm*Ncrw)**1.426)*((md/1000)**(-2.141))*mpower**0.9955 - 107.8
 
 def STR(md):
     return md*0.276
@@ -92,6 +94,8 @@ def STR2(X):
     intercept = str_model[5]
     return np.dot(coefs, X) + intercept
 
+def STRTPS(md, mp): #isaji structure an thermal estimation (total)
+    return 1.325*(md/1000)**2.863 + (5.651E-5)*((mp+md)/1000)**5.269 +1390
 
 def POW(md):
     return md*0.018+311
@@ -102,6 +106,8 @@ def POW2(X):
     intercept = pow_model[5]
     return np.dot(coefs, X) + intercept
 
+def POW_Isaji(Dsm, Ncrw, md):
+    return (Dsm**1.784)*(Ncrw**(-0.2694))*((md/1000)**1.384) + 636
 
 def THER(mt_0):
     return mt_0*0.0197
@@ -112,6 +118,11 @@ def THER2(X):
     intercept = ther_model[5]
     return np.dot(coefs, X) + intercept
 
+def ECLSS(Dsm, Ncrw, md):
+    return 2.258*Dsm*Ncrw*((md/1000)**1.052)+544.7
+
+def OTH_Isaji(C, md):# sets a fraction of the other mass
+    return C*md
 
 def OTH(mp):
     return mp*0.0316
@@ -141,7 +152,7 @@ def PRPL_Isaji_cryo(md, mp): #for cryogenic propellant
     m_prpln = 2.702*((m_inert)/(1000))**2.785 - 0.01813*((m_inert)/(1000))**4.348
     return m_prpln
 
-def PRPL_Isaji_storable(md, mp, FT, Isp):
+def PRPL_Isaji_storable(md, mp, FT, Isp): #direct Isaji estimation for storable propellants
     m_inert = md + mp
     
     rho = ((FT.rho_fuel) + (FT.rho_lox)*FT.MR)/FT.MR
@@ -495,6 +506,138 @@ def routine_Ramos_Cryo(mp, dv, Isp): #uses the ramos propulsion sizing routine
     return lander
 
 #%%
+def routine_stat_MLR_noloop(mp, dv, Isp):
+    # print("mp in routuine_Ramos_Cryo: ", mp)    
+    md_0 = f1(mp)
+    # print("md_0 in routuine_Ramos_Cryo: ", md_0)
+    mprop_0 = f2(mp, md_0, dv, Isp)
+    # print("mprop_0 in routuine_Ramos_Cryo: ", mprop_0)
+    mt_0 = mp + md_0 + mprop_0
+        
+    md_i = md_0
+    mprop_i = mprop_0
+    
+    FT = F1 #N2O4-Aerozine    
+    
+    lander = L("Test lander 1", mp, md_0, mprop_0, mt_0, dv, Isp)
+    
+    X = np.array([lander.md, mp, lander.mprop, Isp, dv])
+    a = lander.STR = STR2(X)
+    b = lander.PRPLSN = PROP2(X)
+    c = lander.POW = POW2(X)
+    d = lander.AVIO = AVIO2(X)
+    e = lander.THER = THER2(X)
+    f = lander.OTH = OTH2(X)
+    md_i1 = sum([a, b, c, d, e, f])
+    
+    correction_scale = md_i1/md_0
+    
+    lander.STR = a/(md_i1/md_0)
+    lander.PRPLSN = b/(md_i1/md_0)
+    lander.POW = c/(md_i1/md_0)
+    lander.AVIO = d/(md_i1/md_0)
+    lander.THER = e/(md_i1/md_0)
+    lander.OTH = f/(md_i1/md_0)
+    
+    # print("iterations: ", i)
+    return lander
+#%%
+def routine_I_N2O4_MLR_iter(mp, dv, Isp):
+    # print("mp in routuine_Ramos_Cryo: ", mp)    
+    md_0 = f1(mp)
+    # print("md_0 in routuine_Ramos_Cryo: ", md_0)
+    mprop_0 = f2(mp, md_0, dv, Isp)
+    # print("mprop_0 in routuine_Ramos_Cryo: ", mprop_0)
+    mt_0 = mp + md_0 + mprop_0
+        
+    md_i = [md_0]
+    mprop_i = [mprop_0]
+    
+    FT = F1 #N2O4-Aerozine    
+    i = 0
+    tol = 0.01
+    er = 1
+    
+    lander = L("Test lander 1", mp, md_0, mprop_0, mt_0, dv, Isp)
+    
+    
+    while er > tol:
+        b = lander.PRPLSN = PRPL_Isaji_storable(md_i[i], mp, FT, Isp)
+        X = np.array([lander.md, mp, lander.mprop, Isp, dv])
+        # print("X: ", X)
+        a = lander.STR = STR2(X)
+        c = lander.POW = POW2(X)
+        d = lander.AVIO = AVIO2(X)
+        e = lander.THER = THER2(X)
+        f = lander.OTH = OTH2(X)
+        md_i1 = sum([a, b, c, d, e, f])
+        mprop_i1 = f2(mp, md_i1, dv, Isp)
+        # print(i)
+        md_i.append(md_i1)
+        mprop_i.append(mprop_i1)
+        er = 1 - md_i1/md_i[i]
+        i = i+1
+        
+        lander.md = float(md_i[-1:][0])
+
+        lander.mprop = float(mprop_i[-1:][0])
+        
+        lander.mt = float(np.array(md_i[-1:])) + float(np.array(mprop_i[-1:])) + float(np.array(mp))
+        
+        if i>100:
+            print("divergence")
+            break
+    # print("iterations: ", i)
+    return lander
+#%%
+def Isaji_imitator(mp, dv, Isp, Dsm, Ncrw, C_other):
+    # print("mp in routuine_Ramos_Cryo: ", mp)    
+    md_0 = f1(mp)
+    # print("md_0 in routuine_Ramos_Cryo: ", md_0)
+    mprop_0 = f2(mp, md_0, dv, Isp)
+    # print("mprop_0 in routuine_Ramos_Cryo: ", mprop_0)
+    mt_0 = mp + md_0 + mprop_0
+        
+    md_i = [md_0]
+    mprop_i = [mprop_0]
+    
+    FT = F1 #N2O4-Aerozine    
+    i = 0
+    tol = 0.01
+    er = 1
+    
+    lander = L_isaji("Isaji lander 1", mp, md_0, mprop_0, mt_0, dv, Isp)
+    
+    
+    while er > tol:
+        b = lander.PRPLSN = PRPL_Isaji_storable(md_i[i], mp, FT, Isp)
+        X = np.array([lander.md, mp, lander.mprop, Isp, dv])
+        # print("X: ", X)
+        a = lander.STRTPS = STRTPS(md_i[i], mp)
+        c = lander.POW = POW_Isaji(Dsm, Ncrw, md_i[i])
+        d = lander.AVIO = AVIO_isaji(Dsm, Ncrw, md_i[i], C_other)
+        e = lander.ECLSS = ECLSS(Dsm, Ncrw, md_i[i])
+        f = lander.OTH = OTH_Isaji(C_other, md_i[i])
+        md_i1 = sum([a, b, c, d, e, f])
+        mprop_i1 = f2(mp, md_i1, dv, Isp)
+        # print(i)
+        md_i.append(md_i1)
+        mprop_i.append(mprop_i1)
+        er = 1 - md_i1/md_i[i]
+        i = i+1
+        
+        lander.md = float(md_i[-1:][0])
+
+        lander.mprop = float(mprop_i[-1:][0])
+        
+        lander.mt = float(np.array(md_i[-1:])) + float(np.array(mprop_i[-1:])) + float(np.array(mp))
+        
+        if i>100:
+            print("divergence")
+            break
+    # print("iterations: ", i)
+    return lander
+#%%
 
 ######### Validation Functions ##########
 def V_ers_2(data, pred, testname):
@@ -505,12 +648,22 @@ def V_ers_2(data, pred, testname):
         # print("here", len(prd[k]))
         erm = np.round(float((prd[k] - dat[k])/(dat[k])), 4)*100        
         errors.append(erm)
+    ers_dic = {"mt:      ":errors[0],
+                "md:      ":errors[1],
+                "mprop:   ":errors[2],
+                "mp:      ":errors[3],
+                "STR:     ":errors[4],
+                "PRPL:    ":errors[5],
+                "AVIO:    ":errors[6],
+                "POW:     ":errors[7],
+                "THER:   ":errors[8],
+                "OTH:     ":errors[9]}
     
 
-    return np.array(errors)
+    return np.array(errors), ers_dic
 # #%%
 # LM_pred = EUC_AZ.routine_all_linear(5295, 2265, 311)
-# LM_test = mf.L("LM", 5295, 2373, 8780, 16447, dv=2265, isp=311, STR = 460, PRPLSN = 495, POW = 366, AVIO = 29, THER = 404, OTH = 273)
+# LM_test = L("LM", 5295, 2373, 8780, 16447, dv=2265, isp=311, STR = 460, PRPLSN = 495, POW = 366, AVIO = 29, THER = 404, OTH = 273)
 # V_ers_2(LM_test, LM_pred, "all")
 
 def V_ers_2_isaji(data, pred, testname):
@@ -521,5 +674,16 @@ def V_ers_2_isaji(data, pred, testname):
         # print("here", len(prd[k]))
         erm = np.round(float((prd[k] - dat[k])/(dat[k])), 4)*100        
         errors.append(erm)
+        
+    ers_dic = {"mt:      ":errors[0],
+                "md:      ":errors[1],
+                "mprop:   ":errors[2],
+                "mp:      ":errors[3],
+                "STRTPS:  ":errors[4],
+                "PRPL:    ":errors[5],
+                "AVIO:    ":errors[6],
+                "POW:     ":errors[7],
+                "ECLSS:   ":errors[8],
+                "OTH:     ":errors[9]}
 
-    return np.array(errors)
+    return np.array(errors), ers_dic
