@@ -91,7 +91,7 @@ class L_isaji:
             return "test failed"
 #%%
 ######## Formatting Functions #########
-def Isaji_comparator(L1): #converts ORLA landers into Isaji Landers
+def Isaji_converter(L1): #converts ORLA landers into Isaji Landers
     L = L_isaji(L1.name, L1.mp, L1.md, L1.mprop, L1.mt, L1.dv, L1.Isp, L1.STR+L1.THER, L1.PRPLSN, L1.POW, L1.AVIO, 1, L1.OTH)
     return L
     # print(L_isaji)
@@ -119,3 +119,20 @@ DB_ss = pd.read_excel(r"subsystems database.xlsx")
 
 LM_test_isaji = L("LM_isaji", 4795, 2217, 8880, 16371, dv=2104, isp=311, STR = 460, PRPLSN = 495, POW = 366, AVIO = 29, THER = 404, OTH = 273)
 LM_test = L("LM", 5295, 2373, 8780, 16447, dv=2265, isp=311, STR = 460, PRPLSN = 495, POW = 366, AVIO = 29, THER = 404, OTH = 273)
+
+Isaji_ers = np.array([0.641, -0.425, 1.32, 0, -1.83, -0.98, -5.33, -0.886, 4.18, 5.14])
+isaji_ers_dict = {"mt:      ":Isaji_ers[0],
+                  "md:      ":Isaji_ers[1],
+                  "mprop:   ":Isaji_ers[2],
+                  "mp:      ":Isaji_ers[3],
+                  "STR:     ":Isaji_ers[4],
+                  "PRPL:    ":Isaji_ers[5],
+                  "AVIO:    ":Isaji_ers[6],
+                  "POW:     ":Isaji_ers[7],
+                  "ECLSS:   ":Isaji_ers[8],
+                  "OTH:     ":Isaji_ers[9]}
+
+ # prd = [pred.mt, pred.md, pred.mprop, pred.mp, pred.STR, pred.PRPLSN, pred.AVIO, pred.POW, pred.THER, pred.OTH]
+
+
+

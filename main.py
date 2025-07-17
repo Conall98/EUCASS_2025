@@ -14,4 +14,4 @@ from DBs import *
 #%%4
 
 test1 = o.routine_all_linear(LM_test.mp, LM_test.md, LM_test.Isp)
-o.V_ers_2(LM_test, test1, "test1A")
+ers = o.V_ers_2(LM_test, test1, "test1A")

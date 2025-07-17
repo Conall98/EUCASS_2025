@@ -521,6 +521,5 @@ def V_ers_2_isaji(data, pred, testname):
         # print("here", len(prd[k]))
         erm = np.round(float((prd[k] - dat[k])/(dat[k])), 4)*100        
         errors.append(erm)
-    
 
     return np.array(errors)
