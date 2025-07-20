@@ -14,6 +14,7 @@ import numpy as np
 from DBs import *
 import tank_sizing_subroutine as tn
 from scipy.optimize import curve_fit
+import logging
 #%%
 ######## Regression Modelling #########
 def Linregger(X, y, i):
@@ -25,6 +26,10 @@ def Linregger(X, y, i):
     intercept =  model.intercept_
     preds = model.predict([X[0]])
     manual_pred = np.dot(coefs, X[0]) + model.intercept_
+    if abs(preds[0] - manual_pred) > 0.5:
+        logging.warning("Manual Prediction and model.predict() do not agree")
+        
+    
     # print("predicted y", preds)
     # print("manual_preds", manual_pred)
     # print("actual y", y[0, i])
@@ -34,16 +39,32 @@ def Linregger(X, y, i):
 def modeler(ssDB):
     X_data = np.array([ssDB["md"], ssDB["mp"], ssDB["mprop"], ssDB["dV"], ssDB["Isp"]]).transpose()
     y_data = np.array([ssDB["Structure"], ssDB["Propulsion"], ssDB["Power"], ssDB["Avionics"], ssDB["Thermal Protection"], ssDB["Other"]]).transpose()
-    ss_models = np.zeros([6, 6]) #six row(predictions), five coefficients + one intercept for each pred
+    ss_models = np.zeros([6, 7]) #six row(predictions), five coefficients + one intercept for each pred
     Rs = []
     for i in range(0, 6):
-        coefs, inter, r = Linregger(X_data, y_data, i)
+        coefs, inter, r2 = Linregger(X_data, y_data, i)
         ss_models[i, 0:5] = coefs
         ss_models[i, 5:6] = inter
-        Rs.append(r)
+        ss_models[i, 6] = r2
+        Rs.append(r2)
     
     return ss_models
 
+#%%
+def flexible_modeler(X_data, target, i):
+    features = len(X_data[0,:])
+    # print("features", features)
+    ss_model = np.zeros([1, features + 2]) #six row(predictions), five coefficients + one intercept for each pred
+    Rs = []
+    coefs, inter, r2 = Linregger(X_data, target, 0)
+    ss_model[i, 0:features] = coefs
+    ss_model[i, features:features+1] = inter
+    ss_model[i, features + 1] = r2
+    Rs.append(r2)
+    
+    return ss_model
+
+#%%
 def polyregger(X, y):
     def func(a, x, b, c):
         return a*x**(b)+c
@@ -615,7 +636,7 @@ def Isaji_imitator(mp, dv, Isp, Dsm, Ncrw, C_other):
         # print("X: ", X)
         a = lander.STRTPS = STRTPS(md_i[i], mp)
         c = lander.POW = POW_Isaji(Dsm, Ncrw, md_i[i])
-        d = lander.AVIO = AVIO_isaji(Dsm, Ncrw, md_i[i], C_other)
+        d = lander.AVIO = AVIO_isaji(Dsm, Ncrw, md_i[i], c)
         e = lander.ECLSS = ECLSS(Dsm, Ncrw, md_i[i])
         f = lander.OTH = OTH_Isaji(C_other, md_i[i])
         md_i1 = sum([a, b, c, d, e, f])
@@ -637,6 +658,88 @@ def Isaji_imitator(mp, dv, Isp, Dsm, Ncrw, C_other):
             break
     # print("iterations: ", i)
     return lander
+
+#%%
+def Progessive_MLR_Sizing(mp, dv, Isp, DBss):
+    # print("mp in routuine_Ramos_Cryo: ", mp)    
+    md_0 = f1(mp)
+    # print("md_0 in routuine_Ramos_Cryo: ", md_0)
+    mprop_0 = f2(mp, md_0, dv, Isp)
+    # print("mprop_0 in routuine_Ramos_Cryo: ", mprop_0)
+    mt_0 = mp + md_0 + mprop_0
+        
+    md_i = [md_0]
+    mprop_i = [mprop_0]
+    
+    FT = F1 #N2O4-Aerozine    
+    i = 0
+    tol = 0.01
+    er = 1
+    
+    lander = L("Test lander 1", mp, md_0, mprop_0, mt_0, dv, Isp)
+    
+    X_data = np.array([DBss["md"], DBss["mp"], DBss["mprop"], DBss["dV"], DBss["Isp"]]).transpose()
+    y_data = np.array([DB_ss["Structure"], DB_ss["Propulsion"], DB_ss["Power"], DB_ss["Avionics"], DB_ss["Thermal Protection"], DB_ss["Other"]]).transpose()
+    ss_models = modeler(DBss) #initialise the models
+    # print("subsystem models", ss_models)
+    argmax_r2 = np.argmax(ss_models[:, -1:]) #extract model with the max R
+    ss_list = ["Structure", "Propulsion", "Power", "Avionics", "Thermal Protection", "Other"]
+    sorted_indices = np.argsort(-ss_models[:, -1])
+    
+    
+    # model1.fit(X_data, DBss[ss_list[i]])  
+    # A = ss_list[sorted_indices[i]]
+    # A_star = np.array(DBss[A]).reshape(len(DBss[A]), 1)
+    # X_data = np.append(X_data, A_star, 1)
+    # print("X_data extended", X_data)
+    
+    #### the full process for one model ######
+    X_star = np.array([lander.md, mp, lander.mprop, Isp, dv]).reshape(-1, 1).transpose() # the input features
+    X_data_star = np.array([DBss["md"], DBss["mp"], DBss["mprop"], DBss["dV"], DBss["Isp"]]).transpose()
+    preds = []
+    for i in range(0, len(ss_list)):
+        # print("length of ss_list", len(ss_list))
+        model1 = linear_model.LinearRegression(fit_intercept=False, positive=True) #initialise the model
+        y_data_i = DBss[ss_list[sorted_indices[i]]] #initialise the target data
+        print("subsystem: ", ss_list[sorted_indices[i]])
+        model1.fit(X_data_star, y_data_i) #fit the feature and the first target
+        print("regression score", model1.score(X_data_star, y_data_i))
+        # print("features being fitted: ", len(X_data_star[0, :]))
+        # print("target being fitted: ", np.shape(y_data_i))
+        # print(model1)
+        y1 = model1.predict(X_star) #prediction of the first target
+        # print("X_star:", X_star)
+        A = ss_list[sorted_indices[i]]
+        A_star = np.array(DBss[A]).reshape(len(DBss[A]), 1)
+        # print("target being added to features: ", A_star)
+        X_data_star = np.append(X_data_star, A_star, 1) #appending the 1st target data to the feature data
+        # print("new features: ", X_data_star)
+        # print("X_data_star:", X_data_star)
+        X_star = np.append(X_star, y1).reshape(-1, 1).transpose()#adding the predicted target to the input feautures
+        print("target", y1)
+        preds.append(y1)
+    
+    b = lander.PRPLSN = preds[0]
+    a = lander.STR = preds[5]
+    c = lander.POW = preds[3]
+    d = lander.AVIO = preds[4]
+    e = lander.THER = preds[2]
+    f = lander.OTH = preds[1]
+    md_i1 = sum([a, b, c, d, e, f])
+    mprop_i1 = f2(mp, md_i1, dv, Isp)
+    # print(i)
+    md_i.append(md_i1)
+    mprop_i.append(mprop_i1)
+    
+    lander.md = float(md_i[-1:][0])
+
+    lander.mprop = float(mprop_i[-1:][0])
+    
+    lander.mt = float(np.array(md_i[-1:])) + float(np.array(mprop_i[-1:])) + float(np.array(mp))
+    
+# print("iterations: ", i)
+    return lander
+    
 #%%
 
 ######### Validation Functions ##########
