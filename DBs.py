@@ -115,7 +115,7 @@ M3 = material("Aluminium 2195", 2710, 590E+6) #makeitfrom.com
 
 #%%
 DB_Landers = pd.read_excel(r"Lander DB 251 redux (alt).xlsx")
-DB_ss = pd.read_excel(r"subsystems database.xlsx")
+DB_ss = pd.read_excel(r"subsystems database (normalised).xlsx")
 
 LM_test_isaji = L("LM_isaji", 4795, 2217, 8880, 16371, dv=2104, isp=311, STR = 460, PRPLSN = 492.6, POW = 356.1, AVIO = 36.3, THER = 411.2, OTH = 246)
 LM_test_isaji = L_isaji("LM_isaji", 4795, 2217, 8880, 16371, dv=2104, isp=311, STRTPS = 460+411.2, PRPLSN = 492.6, POW = 356.1, AVIO = 36.3, ECLSS=214.6, OTH = 246)

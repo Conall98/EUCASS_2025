@@ -165,18 +165,30 @@ def tank_tester(shape, material, thickness, pressure, radius): #if it is a spher
 
 
 #%% test routine
+# def tank_routine(mprop, tank_material, shape, pressure, constraint, density):
+#     # print("mprop in tank_routine: ", mprop)
+#     test_S, tank_V, tank_r = tank_geometry(mprop, density, shape, constraint)
+#     test_t = tank_thickness(tank_V, tank_material, shape, pressure, constraint)
+#     test_m = tank_mass(test_S, test_t, M1)
+#     test_result = tank_tester(shape, tank_material, test_t, pressure, tank_r)
+#     tank = Tank(np.round(test_m, 2), 
+#                 shape, 
+#                 np.round(test_t, 6), 
+#                 test_result, 
+#                 np.round(tank_V, 2))
+#     return tank
 def tank_routine(mprop, tank_material, shape, pressure, constraint, density):
     # print("mprop in tank_routine: ", mprop)
     test_S, tank_V, tank_r = tank_geometry(mprop, density, shape, constraint)
     test_t = tank_thickness(tank_V, tank_material, shape, pressure, constraint)
     test_m = tank_mass(test_S, test_t, M1)
-    test_result = tank_tester(shape, tank_material, test_t, pressure, tank_r)
+    # test_result = tank_tester(shape, tank_material, test_t, pressure, tank_r)
     tank = Tank(np.round(test_m, 2), 
                 shape, 
-                np.round(test_t, 6), 
-                test_result, 
+                np.round(test_t, 6),
                 np.round(tank_V, 2))
     return tank
+
 
 #%%
 # tank = tank_routine(mprop, tank_material, shape, pressure, constraint, density)

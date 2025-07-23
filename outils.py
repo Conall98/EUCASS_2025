@@ -15,11 +15,12 @@ from DBs import *
 import tank_sizing_subroutine as tn
 from scipy.optimize import curve_fit
 import logging
+import matplotlib.pyplot as plt
 #%%
 ######## Regression Modelling #########
 def Linregger(X, y, i):
     # print("i", i)
-    model = linear_model.LinearRegression()
+    model = linear_model.LinearRegression(fit_intercept=False, positive=True)
     model.fit(X, y[:, i])
     R2 = model.score(X, y[:, i])
     coefs = model.coef_
@@ -91,8 +92,8 @@ def f3(mp, mprop):
 #%%
 ######## The Subsystem Sizing Routines #########
 
-def AVIO(md):
-    return md*0.0774
+def AVIO(md, mp):
+    return (md+mp)*0.0156
 
 def AVIO2(X):
     avio_model = ss_models[3, :]
@@ -104,7 +105,7 @@ def AVIO_isaji(Dsm, Ncrw, md, mpower): #DSM IS MISSION DURATION
     return ((Dsm*Ncrw)**1.426)*((md/1000)**(-2.141))*mpower**0.9955 - 107.8
 
 def STR(md):
-    return md*0.276
+    return (md)*0.234
 
 def STR_mp(mp):
     return mp*0.0747
@@ -119,7 +120,7 @@ def STRTPS(md, mp): #isaji structure an thermal estimation (total)
     return 1.325*(md/1000)**2.863 + (5.651E-5)*((mp+md)/1000)**5.269 +1390
 
 def POW(md):
-    return md*0.018+311
+    return md*0.0603
 
 def POW2(X):
     pow_model = ss_models[2, :]
@@ -131,7 +132,7 @@ def POW_Isaji(Dsm, Ncrw, md):
     return (Dsm**1.784)*(Ncrw**(-0.2694))*((md/1000)**1.384) + 636
 
 def THER(mt_0):
-    return mt_0*0.0197
+    return mt_0*0.0139
 
 def THER2(X):
     ther_model = ss_models[4, :]
@@ -145,8 +146,8 @@ def ECLSS(Dsm, Ncrw, md):
 def OTH_Isaji(C, md):# sets a fraction of the other mass
     return C*md
 
-def OTH(mp):
-    return mp*0.0316
+def OTH(md):
+    return md*0.0316
 
 def OTH2(X):
     oth_model = ss_models[5, :]
@@ -155,8 +156,8 @@ def OTH2(X):
     return np.dot(coefs, X) + intercept
 
 
-def PROP(mt_0):
-    return mt_0*0.044
+def PROP(mprop):
+    return mprop*0.0887
 
 def PROP2(X):
     prpl_model = ss_models[1, :]
@@ -213,9 +214,9 @@ def routine_Ramos_N2O4(mp, dv, Isp): #uses the ramos propulsion sizing routine
     lander = L("Test lander 1", mp, md_0, mprop_0, mt_0, dv, Isp)
     a = lander.STR = STR_mp(mp)
     c = lander.POW = POW(md_i[i])
-    d = lander.AVIO = AVIO(md_i[i])
+    d = lander.AVIO = AVIO(md_i[i], mp)
     e = lander.THER = THER(mt_0)
-    f = lander.OTH = OTH(mp)
+    f = lander.OTH = OTH(md_i[i])
     
     while er > tol:
         b = lander.PRPLSN = PRPL_Ramos(md_i[i], mprop_i[i], mp, FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape)
@@ -269,9 +270,9 @@ def routine_Ramos_N2O4_iter(mp, dv, Isp): #uses the ramos propulsion sizing rout
         b = lander.PRPLSN = PRPL_Ramos(md_i[i], mprop_i[i], mp, FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape)
         a = lander.STR = STR_mp(mp)
         c = lander.POW = POW(md_i[i])
-        d = lander.AVIO = AVIO(md_i[i])
+        d = lander.AVIO = AVIO(md_i[i], mp)
         e = lander.THER = THER(lander.mt)
-        f = lander.OTH = OTH(mp)
+        f = lander.OTH = OTH(md_i[i])
         
         md_i1 = sum([a, b, c, d, e, f])
         mprop_i1 = f2(mp, md_i1, dv, Isp)
@@ -311,9 +312,9 @@ def routine_Isaji_N2O4(mp, dv, Isp): #uses the ramos propulsion sizing routine
     lander = L("Test lander 1", mp, md_0, mprop_0, mt_0, dv, Isp)
     a = lander.STR = STR_mp(mp)
     c = lander.POW = POW(md_i[i])
-    d = lander.AVIO = AVIO(md_i[i])
+    d = lander.AVIO = AVIO(md_i[i], mp)
     e = lander.THER = THER(mt_0)
-    f = lander.OTH = OTH(mp)
+    f = lander.OTH = OTH(md_i[i])
     
     while er > tol:
         b = lander.PRPLSN = PRPL_Isaji_storable(md_i[i], mp, FT, Isp)
@@ -454,9 +455,9 @@ def routine_all_linear(mp, dv, Isp):
     
     a = lander.STR = STR_mp(mp)
     c = lander.POW = POW(md_i)
-    d = lander.AVIO = AVIO(md_i)
+    d = lander.AVIO = AVIO(md_i, mp)
     e = lander.THER = THER(mt_0)
-    f = lander.OTH = OTH(mp)
+    f = lander.OTH = OTH(md_i)
     
     md_i1 = sum([a, b, c, d, e, f])
     
@@ -505,9 +506,9 @@ def routine_Ramos_Cryo(mp, dv, Isp): #uses the ramos propulsion sizing routine
         
         a = lander.STR = STR_mp(mp)
         c = lander.POW = POW(md_i[i])
-        d = lander.AVIO = AVIO(md_i[i])
+        d = lander.AVIO = AVIO(md_i[i], mp)
         e = lander.THER = THER(mt_0)
-        f = lander.OTH = OTH(mp)
+        f = lander.OTH = OTH(md_i[i])
         
         md_i1 = sum([a, b, c, d, e, f])
         mprop_i1 = f2(mp, md_i1, dv, Isp)
@@ -679,7 +680,7 @@ def Progessive_MLR_Sizing(mp, dv, Isp, DBss):
     lander = L("Test lander 1", mp, md_0, mprop_0, mt_0, dv, Isp)
     
     X_data = np.array([DBss["md"], DBss["mp"], DBss["mprop"], DBss["dV"], DBss["Isp"]]).transpose()
-    y_data = np.array([DB_ss["Structure"], DB_ss["Propulsion"], DB_ss["Power"], DB_ss["Avionics"], DB_ss["Thermal Protection"], DB_ss["Other"]]).transpose()
+    y_data = np.array([DBss["Structure"], DBss["Propulsion"], DBss["Power"], DBss["Avionics"], DBss["Thermal Protection"], DBss["Other"]]).transpose()
     ss_models = modeler(DBss) #initialise the models
     # print("subsystem models", ss_models)
     argmax_r2 = np.argmax(ss_models[:, -1:]) #extract model with the max R
@@ -790,3 +791,122 @@ def V_ers_2_isaji(data, pred, testname):
                 "OTH:     ":errors[9]}
 
     return np.array(errors), ers_dic
+
+#%%
+def V_ss_plotter(data, pred, testname): #two lander objects
+
+    dat = [data.STR, data.PRPLSN, data.AVIO, data.POW, data.THER, data.OTH]
+    prd = [pred.STR, pred.PRPLSN, pred.AVIO, pred.POW, pred.THER, pred.OTH]
+    
+    dat2 = [data.mt, data.md, data.mprop]
+    prd2 = [pred.mt, pred.md, pred.mprop]
+
+# Set category labels at adjusted positions
+    x_positions = [0, 1, 
+                   3, 4, 
+                   6, 7, 
+                   9, 10, 
+                   12, 13, 
+                   15, 16]
+    j = 0
+    k = 0
+    l = 0
+    plt.figure()
+    while k < len(x_positions):
+        # print(x_positions[k])
+        plt.bar(x_positions[k], dat[j], width=1, align='center', color = "blue", label = "data")
+        k=k+1
+        # print(x_positions[k])
+        plt.bar(x_positions[k], prd[j], width=1, align='center', color = "orange", label = "prediction")
+        if j == 0:
+            plt.legend()
+        k=k+1
+        j = j + 1
+
+
+    x_labels = ["str", "prpl", "avio", "pow", "therm", "oth"]
+    plt.xticks([0.5, 3.5, 6.5, 9.5, 12.5, 15.5], x_labels)
+    
+    plt.xlabel('Subsystems')
+    plt.ylabel('Mass [kg]')
+    plt.title('Sizing algorithm validation: {}'.format(testname))
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    
+    plt.tight_layout()
+    plt.show()
+    
+# Set category labels at adjusted positions
+    x_positions2 = [0, 1, 
+                   3, 4, 
+                   6, 7]
+    j = 0
+    k = 0
+    l = 0
+    plt.figure()
+    while k < len(x_positions2):
+        # print(x_positions[k])
+        plt.bar(x_positions2[k], dat2[j], width=1, align='center', color = "blue", label = "data")
+        k=k+1
+        # print(x_positions[k])
+        plt.bar(x_positions2[k], prd2[j], width=1, align='center', color = "orange", label = "prediction")
+        if j == 0:
+            plt.legend()
+        k=k+1
+        j = j + 1
+
+
+    x_labels = ["$m_t$", "$m_d$", "$m_{prop}$", ]
+    plt.xticks([0.5, 3.5, 6.5], x_labels)
+    
+    plt.xlabel('Major mass properties')
+    plt.ylabel('Mass [kg]')
+    plt.title('Sizing algorithm validation: {}'.format(testname))
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    
+    plt.tight_layout()    
+    
+#%%
+def global_errors(DB):
+    glob_ers = np.zeros([10,10])
+    glob_ers_means = np.zeros(10)
+    for i in range(0, len(DB["mt"])):
+        data = DB_2_class(DB_ss, i)
+        mp = float(DB_ss["mp"][i])
+        dv = float(DB_ss["dV"][i])
+        Isp = float(DB_ss["Isp"][i]) 
+        
+        ############### for N2O4 #################
+        pred = routine_Ramos_N2O4(mp, dv, Isp) #making the prediction
+        # pred = routine_Ramos_N2O4_iter(mp, dv, Isp) #making the prediction
+        # pred = routine_all_linear(mp, dv, Isp) #making the prediction
+        # pred = routine_Isaji_N2O4(mp, dv, Isp) #making the prediction
+        # pred = routine_Isaji_N2O4_MLR(mp, dv, Isp) #making the prediction
+        # pred = routine_stat_MLR_iter(mp, dv, Isp) #making the prediction
+        # pred = routine_I_N2O4_MLR_iter(mp, dv, Isp) #making the prediction
+        # pred = routine_stat_MLR_noloop(mp, dv, Isp) #making the prediction
+        
+        
+        ############# for LOX/LH2 ################
+        
+        # pred = EUC_LH2.routine_Ramos_Cryo(mp, dV, Isp)
+        # pred = EUC_LH2.routine_Isaji_cryo(mp, dV, Isp)
+        # pred = EUC_LH2.routine_Ramos_Cryo_lessloop(mp, dV, Isp)
+        
+        ########### for lch4 ###################
+        # pred = EUC_LH2.routine_Ramos_Cryo_CH4(mp, dV, Isp)
+        
+        
+        # print(pred.test())
+        ers_i, dump = V_ers_2(data, pred, "ith error")
+        # print(ers_i[1])
+        # print("mp_ers: ",data.mp, pred.mp)
+        glob_ers[i,:] = ers_i
+    
+    for i in range(0, 10):
+        # glob_ers_means[i] = np.mean(glob_ers[:,i])
+        # glob_ers_means[i] = np.median(glob_ers[:,i])
+        # glob_ers_means[i] = np.median(np.sqrt(glob_ers[:,i]**2))
+        glob_ers_means[i] = np.median(abs(glob_ers[:,i]))
+        # print(glob_ers[:,i])
+        
+    return glob_ers_means
