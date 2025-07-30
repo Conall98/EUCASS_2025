@@ -16,6 +16,8 @@ import tank_sizing_subroutine as tn
 from scipy.optimize import curve_fit
 import logging
 import matplotlib.pyplot as plt
+from sklearn import linear_model
+from sklearn.preprocessing import PolynomialFeatures
 #%%
 ######## Regression Modelling #########
 def Linregger(X, y, i):
@@ -66,13 +68,32 @@ def flexible_modeler(X_data, target, i):
     return ss_model
 
 #%%
-def polyregger(X, y):
+def power_regger(X, y):
     def func(a, x, b, c):
         return a*x**(b)+c
     for i in range(0,6):
         xdata = X[:,i]
         ydata = y
         popt, pcov = curve_fit(func, xdata, ydata)
+
+#%%
+def MPR(X, y, i): #multiple polynomial regression
+    poly = PolynomialFeatures(degree=2, include_bias=False)
+    X_poly = poly.fit_transform(X)
+    # Create and fit linear model on transformed X
+    model = linear_model.LinearRegression(fit_intercept=False, positive=True)
+    model.fit(X_poly, y[:, i])
+    R2 = model.score(X_poly, y[:, i])
+    coefs = model.coef_
+    intercept = model.intercept_
+    
+    # Predict on first sample for consistency check
+    preds = model.predict([X_poly[0]])
+    manual_pred = np.dot(coefs, X_poly[0]) + intercept
+    if abs(preds[0] - manual_pred) > 0.5:
+        logging.warning("Manual Prediction and model.predict() do not agree")
+    
+    return coefs, intercept, R2
 
 ss_models = modeler(DB_ss)
 
