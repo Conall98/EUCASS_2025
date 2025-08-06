@@ -116,11 +116,13 @@ M3 = material("Aluminium 2195", 2710, 590E+6) #makeitfrom.com
 #%%
 DB_Landers = pd.read_excel(r"Lander DB 251 redux (alt).xlsx")
 DB_ss = pd.read_excel(r"subsystems database (normalised).xlsx")
+# DB_ss = pd.read_excel(r"subsystems database (normalised).xlsx")
 
 LM_test_isaji = L("LM_isaji", 4795, 2217, 8880, 16371, dv=2104, isp=311, STR = 460, PRPLSN = 492.6, POW = 356.1, AVIO = 36.3, THER = 411.2, OTH = 246)
 LM_test_isaji = L_isaji("LM_isaji", 4795, 2217, 8880, 16371, dv=2104, isp=311, STRTPS = 460+411.2, PRPLSN = 492.6, POW = 356.1, AVIO = 36.3, ECLSS=214.6, OTH = 246)
 
 LM_test = L("LM", 5295, 2373, 8780, 16447, dv=2265, isp=311, STR = 460, PRPLSN = 495, POW = 366, AVIO = 29, THER = 404, OTH = 273)
+ESAS_J_test = DB_2_class(DB_ss, 9)
 
 Isaji_ers = np.array([0.641, -0.425, 1.32, 0, -1.83, -0.98, -5.33, -0.886, 4.18, 5.14])
 isaji_ers_dict = {"mt:      ":Isaji_ers[0],

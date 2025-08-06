@@ -44,10 +44,14 @@ def tank_geometry(mass, density, shape, constraint=None): # constraint is the ma
     # print("in tank_geometry mass is: ", mass)
     # print("volume is: ", density)
     V = mass/density
+    # print("mass and density", mass, density)
+    
     if shape == "sphere":
         r = (3*V/(4*np.pi))**(1/3)
         S = (4)*(np.pi*(r)**2)
+        # print("sphere V", V)
         return S, V, r
+        
     elif shape == "cylinder":
         r = constraint/2
         h = V/(2*np.pi*r)
@@ -135,7 +139,7 @@ def tank_tester(shape, material, thickness, pressure, radius): #if it is a spher
     t = thickness
     p = pressure*1E5
     r = radius
-    
+    # print("shape", shape)
     if shape == "sphere":
         sigma_actual = (p*r)/(2*t)
         if sigma_actual > sigma_max:
@@ -179,14 +183,12 @@ def tank_tester(shape, material, thickness, pressure, radius): #if it is a spher
 #     return tank
 def tank_routine(mprop, tank_material, shape, pressure, constraint, density):
     # print("mprop in tank_routine: ", mprop)
+    # print("mprop in tank routine", mprop)
     test_S, tank_V, tank_r = tank_geometry(mprop, density, shape, constraint)
     test_t = tank_thickness(tank_V, tank_material, shape, pressure, constraint)
     test_m = tank_mass(test_S, test_t, M1)
-    # test_result = tank_tester(shape, tank_material, test_t, pressure, tank_r)
-    tank = Tank(np.round(test_m, 2), 
-                shape, 
-                np.round(test_t, 6),
-                np.round(tank_V, 2))
+    test_result = tank_tester(shape, tank_material, test_t, pressure, tank_r)
+    tank = Tank(np.round(test_m, 2), shape, np.round(test_t, 6), test_result, np.round(tank_V, 2))
     return tank
 
 
@@ -205,6 +207,7 @@ def PRPL(md,
          OX_tank_shape, #shape of the oxidizer tank
          F_tank_shape, #shape of the fuel tank
          P_tank_shape): #shape of the pressurant tank
+    # print("mprop", mprop)
     #m_engines
     # Relation - 1: (Ramos 2022)
     mt = md+mprop+mp
@@ -245,18 +248,21 @@ def PRPL(md,
     density = FT.rho_fuel
     # print("m_fuel in PRPL : ", m_fuel)
     FUEL_TANK = tank_routine(m_fuel, tank_material, shape, pressure, constraint, density)
+    # print("m_fuel", m_fuel)
     
     #m_tank_lox # assuming a taurus
     shape = OX_tank_shape
     constraint = 4 #meters
     density = FT.rho_lox
     LOX_TANK = tank_routine(m_lox, tank_material, shape, pressure, constraint, density)
+    # print("m_lox", m_lox)
     
     #m_tank_pressurant
     shape = P_tank_shape
     constraint = 4 #meters
     density = FT.rho_fuel
     PRESSURANT_TANK = tank_routine(m_press, tank_material, shape, 50, constraint, density)
+    # print("m_press", m_press)
     
     
     m_bare = LOX_TANK.mass + FUEL_TANK.mass + PRESSURANT_TANK.mass  #see the other tank mass functions you made

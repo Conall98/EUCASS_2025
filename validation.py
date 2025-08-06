@@ -5,6 +5,10 @@ Created on Fri Jun 20 10:36:19 2025
 @author: cdepaor
 """
 
+import os
+import sys
+script_dir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(script_dir)
 import numpy as np
 import matplotlib.pyplot as plt
 import EUCASS_Subsystem_Subroutines as ESR

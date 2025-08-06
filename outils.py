@@ -17,12 +17,13 @@ from scipy.optimize import curve_fit
 import logging
 import matplotlib.pyplot as plt
 from sklearn import linear_model
+
 from sklearn.preprocessing import PolynomialFeatures
 #%%
 ######## Regression Modelling #########
 def Linregger(X, y, i):
     # print("i", i)
-    model = linear_model.LinearRegression(fit_intercept=False, positive=True)
+    model = linear_model.LinearRegression(fit_intercept=False, positive=False)
     model.fit(X, y[:, i])
     R2 = model.score(X, y[:, i])
     coefs = model.coef_
@@ -53,6 +54,8 @@ def modeler(ssDB):
     
     return ss_models
 
+ss_models = modeler(DB_ss)
+
 #%%
 def flexible_modeler(X_data, target, i):
     features = len(X_data[0,:])
@@ -76,29 +79,131 @@ def power_regger(X, y):
         ydata = y
         popt, pcov = curve_fit(func, xdata, ydata)
 
+#%%        
+def R_squared(features, model, target):
+    RSOS = 0
+    TSOS = 0
+    y_hat = np.mean(target)
+    for i in range(0, len(target)):
+        RSOS = RSOS + (target[i] - model(features[i, :]))  
+        TSOS = TSOS + (target[i] - y_hat)**2  
+    return 1 - RSOS/TSOS
 #%%
-def MPR(X, y, i): #multiple polynomial regression
-    poly = PolynomialFeatures(degree=2, include_bias=False)
+def multiple_power_regression(DBss): # for predicting 10 targets using five features
+    def func(x1, x2, x3, x4, x5, a1, a2, a3, a4, a5, b1, b2, b3, b4, b5):
+        return a1*x1**b1 + a2*x2**b2 + a3*x3**b3 + a4*x4**b4 + a5*x5**b5
+    xdata = np.array([DBss["md"], DBss["mp"], DBss["mprop"], DBss["dV"], DBss["Isp"]]).transpose()
+    ydata = np.array([DBss["Structure"], DBss["Propulsion"], DBss["Power"], DBss["Avionics"], DBss["Thermal Protection"], DBss["Other"]]).transpose()
+    # for i in range(0, 6):
+    popt, pcov = curve_fit(func, xdata, ydata[:, 0]) # fit just for structural mass now
+    # pred = func(xdata, *popt)
+    return popt
+    
+#%%
+# def MPR(X, y, i): #multiple polynomial regression
+# #     poly = PolynomialFeatures(degree=2, include_bias=False)
+# #     X_poly = poly.fit_transform(X)
+# #     # print("here", np.shape(X_poly))
+# #     # Create and fit linear model on transformed X
+# #     model = linear_model.LinearRegression(fit_intercept=False, positive=False)
+# #     model.fit(X_poly, y[:, i])
+# #     R2 = model.score(X_poly, y[:, i])
+# #     coefs = model.coef_
+# #     intercept = model.intercept_
+# #     # Predict on first sample for consistency check
+# #     preds = model.predict([X_poly[0]])
+# #     manual_pred = np.dot(coefs, X_poly[0]) + intercept
+# #     if abs(preds[0] - manual_pred) > 0.5:
+# #         logging.warning("Manual Prediction and model.predict() do not agree")
+        
+# #     ss_models = np.zeros([6, len(model.coef_)+2])    
+# #     for i in range(0, len(y[0, :])):
+# #         model.fit(X_poly, y[:, i])
+# #         # print("coefs_", len(model.coef_))
+# #         ss_models[i, 0:len(model.coef_)] = model.coef_
+# #         ss_models[i, len(model.coef_)] = model.intercept_
+# #         ss_models[i, len(model.coef_)+1] = model.score(X_poly, y[:, i])
+# #         # Rs.append(r2)
+# #     # print("ss_models", ss_models)
+    
+# #     # return coefs, intercept, R2
+# #     return ss_models, X_poly
+#     poly = PolynomialFeatures(degree=2, include_bias=False)
+#     X_poly = poly.fit_transform(X)
+#     print("shape X_poly", np.shape(X_poly[0, :].reshape(-1, 1).T))
+#     print("shape y", np.shape(y[0, :].reshape(-1,1)))
+#     model = linear_model.LinearRegression(fit_intercept=False, positive=False)
+    
+#     model.fit(X_poly, y)
+    
+#     print("model score", model.score(X_poly, y[0, :]))
+    
+#     ss_models = np.zeros([6, len(X_poly[0, :])+2]) #six row(predictions), five coefficients + one intercept for each pred
+#     # Rs = []
+#     for i in range(0, len(y[0, :])):
+#         ss_models[i, :-2] = model.coef_[i, :]
+#         ss_models[i, -2] = model.intercept_
+#         ss_models[i, -1] = model.score(X_poly, y)
+#     #     Rs.append(r2)
+#     return ss_models, 1
+
+
+def MPR(X, y, degree=2):
+    # Ensure X and y are both 2D
+    if X.ndim == 1:
+        X = X.reshape(-1, 1)
+    if y.ndim == 1:
+        y = y.reshape(-1, 1)
+
+    # Polynomial feature transformation
+    poly = PolynomialFeatures(degree=degree, include_bias=False)
     X_poly = poly.fit_transform(X)
-    # Create and fit linear model on transformed X
-    model = linear_model.LinearRegression(fit_intercept=False, positive=True)
-    model.fit(X_poly, y[:, i])
-    R2 = model.score(X_poly, y[:, i])
-    coefs = model.coef_
-    intercept = model.intercept_
-    
-    # Predict on first sample for consistency check
-    preds = model.predict([X_poly[0]])
-    manual_pred = np.dot(coefs, X_poly[0]) + intercept
-    if abs(preds[0] - manual_pred) > 0.5:
-        logging.warning("Manual Prediction and model.predict() do not agree")
-    
-    return coefs, intercept, R2
 
-ss_models = modeler(DB_ss)
+    # Set up regression model
+    model = linear_model.LinearRegression(fit_intercept=False, positive=True)
+    model.fit(X_poly, y)  # Fits all outputs at once
+
+    # Predict the first sample manually to compare
+    x0 = X_poly[0].reshape(1, -1)         # (1, n_features)
+    preds = model.predict(x0)             # shape (1, n_outputs)
+    manual_pred = np.dot(X_poly[0], model.coef_.T) + model.intercept_
+
+    for j in range(preds.shape[1]):
+        if abs(preds[0, j] - manual_pred[j]) > 0.5:
+            logging.warning(f"Disagreement on prediction in output {j}")
+
+    # Prepare summary array: (n_outputs x [n_coefs + intercept + R2])
+    n_outputs = y.shape[1]
+    ss_models = np.zeros((n_outputs, X_poly.shape[1] + 2))
+
+    for i in range(n_outputs):
+        model.fit(X_poly, y[:, i])
+        ss_models[i, :-2] = model.coef_
+        ss_models[i, -2] = model.intercept_
+        ss_models[i, -1] = model.score(X_poly, y[:, i])
+
+    return ss_models, X_poly
+
+#%%
+
+
+
+
 
 
 #%%
+def m_predict(model, features):
+    poly = PolynomialFeatures(degree=2, include_bias=False)
+    X_poly = poly.fit_transform(features).transpose()
+    print("model shape", np.shape(model[:, :-2]))
+    print("features shape", np.shape(X_poly))
+    print("interepts shape", np.shape(model[:, -2]))
+    # for i in range(len(model[:, 0])): 
+    prediction = np.dot(model[:, :-2], X_poly) #+ model[:, -2]
+    print("prediction shape", np.shape(prediction))
+    return prediction 
+
+#%% initial functions
 ######## The Major Mass Property functions ########
 def f1(mp):
     return 367.29*np.log(mp) - 904.17
@@ -110,7 +215,7 @@ def f3(mp, mprop):
     x = mp+mprop
     return 12.49*x**0.55
 
-#%%
+#%% Subsyste; functions
 ######## The Subsystem Sizing Routines #########
 
 def AVIO(md, mp):
@@ -240,6 +345,8 @@ def routine_Ramos_N2O4(mp, dv, Isp): #uses the ramos propulsion sizing routine
     f = lander.OTH = OTH(md_i[i])
     
     while er > tol:
+        # print("mprop", mprop_i[-1:])
+        # print("mp", mp)
         b = lander.PRPLSN = PRPL_Ramos(md_i[i], mprop_i[i], mp, FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape)
         md_i1 = sum([a, b, c, d, e, f])
         mprop_i1 = f2(mp, md_i1, dv, Isp)
@@ -762,6 +869,62 @@ def Progessive_MLR_Sizing(mp, dv, Isp, DBss):
 # print("iterations: ", i)
     return lander
     
+
+#%%
+def routine_MPR_noloop(mp, dv, Isp):
+    DBss = DB_ss
+    md_0 = f1(mp)
+    # print("md_0 in routuine_Ramos_Cryo: ", md_0)
+    mprop_0 = f2(mp, md_0, dv, Isp)
+    # print("mprop_0 in routuine_Ramos_Cryo: ", mprop_0)
+    mt_0 = mp + md_0 + mprop_0
+        
+    md_i = [md_0]
+    mprop_i = [mprop_0]
+    
+    FT = F1 #N2O4-Aerozine    
+    i = 0
+    tol = 0.01
+    er = 1
+    
+    lander = L("Test lander 1", mp, md_0, mprop_0, mt_0, dv, Isp)
+    
+    X_data = np.array([DBss["md"], DBss["mp"], DBss["mprop"], DBss["dV"], DBss["Isp"]]).transpose()
+    y_data = np.array([DBss["Structure"], DBss["Propulsion"], DBss["Power"], DBss["Avionics"], DBss["Thermal Protection"], DBss["Other"]]).transpose()
+    
+    
+    
+    models, X_poly = MPR(X_data, y_data, 0)
+    input_array = np.array([lander.md, lander.mp, lander.mprop, lander.dv, lander.Isp])
+    poly = PolynomialFeatures(degree=2, include_bias=False)
+    input_array_transformed = poly.fit_transform(input_array.reshape(1,-1))
+    
+    preds = []
+    # print("here", np.shape(models))
+    # print("here", np.shape(input_array_transformed))
+    for i in range (0, 6):
+        preds.append(np.dot(models[i, :-2], input_array_transformed.reshape(-1,1))) #+ model[:, -2]
+        
+    b = lander.STR = preds[0]
+    a = lander.PRPLSN = preds[1]
+    c = lander.POW = preds[2]
+    d = lander.AVIO = preds[3]
+    e = lander.THER = preds[4]
+    f = lander.OTH = preds[5]
+    
+    md_i1 = sum([a, b, c, d, e, f])
+    mprop_i1 = f2(mp, md_i1, dv, Isp)
+    # print(i)
+    md_i.append(md_i1)
+    mprop_i.append(mprop_i1)
+    
+    lander.md = float(md_i[-1:][0])
+
+    lander.mprop = float(mprop_i[-1:][0])
+    
+    lander.mt = float(np.array(md_i[-1:])) + float(np.array(mprop_i[-1:])) + float(np.array(mp))
+    
+    return lander
 #%%
 
 ######### Validation Functions ##########
@@ -905,7 +1068,8 @@ def global_errors(DB):
         # pred = routine_stat_MLR_iter(mp, dv, Isp) #making the prediction
         # pred = routine_I_N2O4_MLR_iter(mp, dv, Isp) #making the prediction
         # pred = routine_stat_MLR_noloop(mp, dv, Isp) #making the prediction
-        
+        # pred = routine_stat_MLR_noloop(mp, dv, Isp) #making the prediction
+        # pred = routine_MPR_noloop(mp, dv, Isp, DB) #making the prediction
         
         ############# for LOX/LH2 ################
         
@@ -931,3 +1095,55 @@ def global_errors(DB):
         # print(glob_ers[:,i])
         
     return glob_ers_means
+#%%
+def glob_ers_2(Algo_under_test, DB): 
+    glob_ers = np.zeros([10,len(DB["mt"])])
+    glob_ers_means = np.zeros(10)
+    prediction_values = np.zeros([len(DB["mt"]),10])
+    for i in range(0, len(DB["mt"])):
+        data = DB_2_class(DB, i)
+        mp = float(DB["mp"][i])
+        dv = float(DB["dV"][i])
+        Isp = float(DB["Isp"][i]) 
+        
+        pred = Algo_under_test(mp, dv, Isp)
+        # print(pred.mt, pred.md, pred.mprop, pred.mp, float(pred.STR), float(pred.PRPLSN), float(pred.AVIO), float(pred.POW), float(pred.THER), float(pred.OTH))
+        prediction_values[i, :] = np.array([pred.mt, pred.md, pred.mprop, pred.mp, float(pred.STR), float(pred.PRPLSN), float(pred.AVIO), float(pred.POW), float(pred.THER), float(pred.OTH)])
+        ers_i, dump = V_ers_2(data, pred, "ith error")
+        glob_ers[:,i] = ers_i
+    for i in range(0, 10):# for the ten mass-properties
+        # glob_ers_means[i] = np.mean(glob_ers[:,i])
+        # glob_ers_means[i] = np.median(glob_ers[:,i])
+        # glob_ers_means[i] = np.median(np.sqrt(glob_ers[:,i]**2))
+        glob_ers_means[i] = np.median(abs(glob_ers[:,i]))
+    
+    return glob_ers_means, prediction_values
+        
+#%%
+
+def MPR_errors(data, pred):
+    data = data.transpose()
+    ss_ers_avg = np.zeros(6)
+    # print("shape of data:", np.shape(data))
+    # print("shape of prediction:", np.shape(pred))
+    
+    for i in range(0, len(data[:, 0])):
+        print("i", i)
+        raw_ers = []
+        for k in range(0, len(data[0, :])):
+            print("k", k)
+            print("pred[{0}, {1}]".format(i, k), pred[i, k])
+            print("data[{0}, {1}]".format(i, k), data[i, k])
+            raw_ers.append(np.round(float((pred[i, k] - data[i, k])/(data[i, k])), 4)*100)
+        print(raw_ers)
+        ss_ers_avg[i] = np.median(raw_ers)
+    
+    return ss_ers_avg
+
+
+
+
+
+
+
+    
