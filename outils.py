@@ -89,65 +89,32 @@ def R_squared(features, model, target):
         TSOS = TSOS + (target[i] - y_hat)**2  
     return 1 - RSOS/TSOS
 #%%
-def multiple_power_regression(DBss): # for predicting 10 targets using five features
-    def func(x1, x2, x3, x4, x5, a1, a2, a3, a4, a5, b1, b2, b3, b4, b5):
-        return a1*x1**b1 + a2*x2**b2 + a3*x3**b3 + a4*x4**b4 + a5*x5**b5
-    xdata = np.array([DBss["md"], DBss["mp"], DBss["mprop"], DBss["dV"], DBss["Isp"]]).transpose()
-    ydata = np.array([DBss["Structure"], DBss["Propulsion"], DBss["Power"], DBss["Avionics"], DBss["Thermal Protection"], DBss["Other"]]).transpose()
-    # for i in range(0, 6):
-    popt, pcov = curve_fit(func, xdata, ydata[:, 0]) # fit just for structural mass now
-    # pred = func(xdata, *popt)
+def func(X, a1, a2, a3, a4, a5, b1, b2, b3, b4, b5):
+    x1, x2, x3, x4, x5 = X.T  # transpose to unpack columns
+    return a1*x1**b1 + a2*x2**b2 + a3*x3**b3 + a4*x4**b4 + a5*x5**b5
+
+# def func(X, a1, a2, a3, a4, a5, b1, b2, b3, b4, b5):
+#     x1, x2, x3, x4, x5 = X.T  # transpose to unpack columns
+#     return (a1*x1**b1)*(a2*x2**b2)*(a3*x3**b3)*(a4*x4**b4)*(a5*x5**b5)
+#%%
+def multiple_power_regression(X, y):  # for predicting 6 targets using 5 features
+    # xdata = np.array([DBss["md"], DBss["mp"], DBss["mprop"], DBss["dV"], DBss["Isp"]]).T
+    # ydata = np.array(DBss["Structure"])  # single target (1D)
+    xdata = X
+    ydata = y
+
+    # Fit the function to just the "Structure" target
+    initial_guess = [0.5, 0.5, 0.5, 0.5, 0.5,   # a1 to a5
+                 0.5, 0.5, 0.5, 0.5, 0.5]   # b1 to b5
+    bounds = (
+    [0]*5 + [-np.inf]*5,  # a1–a5 >= 0, b1–b5 unrestricted
+    [np.inf]*10)
+    
+    popt, pcov = curve_fit(func, xdata, ydata, p0=initial_guess, bounds=bounds, maxfev=1000000)
+
     return popt
     
 #%%
-# def MPR(X, y, i): #multiple polynomial regression
-# #     poly = PolynomialFeatures(degree=2, include_bias=False)
-# #     X_poly = poly.fit_transform(X)
-# #     # print("here", np.shape(X_poly))
-# #     # Create and fit linear model on transformed X
-# #     model = linear_model.LinearRegression(fit_intercept=False, positive=False)
-# #     model.fit(X_poly, y[:, i])
-# #     R2 = model.score(X_poly, y[:, i])
-# #     coefs = model.coef_
-# #     intercept = model.intercept_
-# #     # Predict on first sample for consistency check
-# #     preds = model.predict([X_poly[0]])
-# #     manual_pred = np.dot(coefs, X_poly[0]) + intercept
-# #     if abs(preds[0] - manual_pred) > 0.5:
-# #         logging.warning("Manual Prediction and model.predict() do not agree")
-        
-# #     ss_models = np.zeros([6, len(model.coef_)+2])    
-# #     for i in range(0, len(y[0, :])):
-# #         model.fit(X_poly, y[:, i])
-# #         # print("coefs_", len(model.coef_))
-# #         ss_models[i, 0:len(model.coef_)] = model.coef_
-# #         ss_models[i, len(model.coef_)] = model.intercept_
-# #         ss_models[i, len(model.coef_)+1] = model.score(X_poly, y[:, i])
-# #         # Rs.append(r2)
-# #     # print("ss_models", ss_models)
-    
-# #     # return coefs, intercept, R2
-# #     return ss_models, X_poly
-#     poly = PolynomialFeatures(degree=2, include_bias=False)
-#     X_poly = poly.fit_transform(X)
-#     print("shape X_poly", np.shape(X_poly[0, :].reshape(-1, 1).T))
-#     print("shape y", np.shape(y[0, :].reshape(-1,1)))
-#     model = linear_model.LinearRegression(fit_intercept=False, positive=False)
-    
-#     model.fit(X_poly, y)
-    
-#     print("model score", model.score(X_poly, y[0, :]))
-    
-#     ss_models = np.zeros([6, len(X_poly[0, :])+2]) #six row(predictions), five coefficients + one intercept for each pred
-#     # Rs = []
-#     for i in range(0, len(y[0, :])):
-#         ss_models[i, :-2] = model.coef_[i, :]
-#         ss_models[i, -2] = model.intercept_
-#         ss_models[i, -1] = model.score(X_poly, y)
-#     #     Rs.append(r2)
-#     return ss_models, 1
-
-
 def MPR(X, y, degree=2):
     # Ensure X and y are both 2D
     if X.ndim == 1:
@@ -160,7 +127,7 @@ def MPR(X, y, degree=2):
     X_poly = poly.fit_transform(X)
 
     # Set up regression model
-    model = linear_model.LinearRegression(fit_intercept=False, positive=True)
+    model = linear_model.LinearRegression(fit_intercept=False, positive=False)
     model.fit(X_poly, y)  # Fits all outputs at once
 
     # Predict the first sample manually to compare
@@ -218,6 +185,38 @@ def f3(mp, mprop):
 #%% Subsyste; functions
 ######## The Subsystem Sizing Routines #########
 
+def STR_MPowR(X_data, y_data):
+    STR_model = multiple_power_regression(X_data, y_data[:, 0])
+    return STR_model
+
+def PRPL_MPowR(X_data, y_data):
+    PRPL_model = multiple_power_regression(X_data, y_data[:, 1])
+    return PRPL_model
+
+def POW_MPowR(X_data, y_data):
+    POW_model = multiple_power_regression(X_data, y_data[:, 2])
+    return POW_model
+
+def AVIO_MPowR(X_data, y_data):
+    AVIO_model = multiple_power_regression(X_data, y_data[:, 3])
+    return AVIO_model
+
+def THER_MPowR(X_data, y_data):
+    THER_model = multiple_power_regression(X_data, y_data[:, 4])
+    return THER_model
+
+def OTH_MPowR(X_data, y_data):
+    OTH_model = multiple_power_regression(X_data, y_data[:, 5])
+    return OTH_model
+
+def MPowR_initialiser(DBss):
+    X_data = np.array([DBss["md"], DBss["mp"], DBss["mprop"], DBss["dV"], DBss["Isp"]]).transpose()
+    y_data = np.array([DBss["Structure"], DBss["Propulsion"], DBss["Power"], DBss["Avionics"], DBss["Thermal Protection"], DBss["Other"]]).transpose()
+    return STR_MPowR(X_data, y_data), PRPL_MPowR(X_data, y_data), POW_MPowR(X_data, y_data), AVIO_MPowR(X_data, y_data), THER_MPowR(X_data, y_data), OTH_MPowR(X_data, y_data)
+
+
+
+#%%
 def AVIO(md, mp):
     return (md+mp)*0.0156
 
@@ -919,6 +918,75 @@ def routine_MPR_noloop(mp, dv, Isp):
     mprop_i.append(mprop_i1)
     
     lander.md = float(md_i[-1:][0])
+    
+#%%
+def routine_multiple_power_regression(mp, dv, Isp, MPowR_model):
+    DBss = DB_ss
+    md_0 = f1(mp)
+    # print("md_0 in routuine_Ramos_Cryo: ", md_0)
+    mprop_0 = f2(mp, md_0, dv, Isp)
+    # print("mprop_0 in routuine_Ramos_Cryo: ", mprop_0)
+    mt_0 = mp + md_0 + mprop_0
+        
+    md_i = [md_0]
+    mprop_i = [mprop_0]
+    
+    FT = F1 #N2O4-Aerozine    
+    i = 0
+    tol = 0.01
+    er = 1
+    
+    lander = L("Test lander 1", mp, md_0, mprop_0, mt_0, dv, Isp)
+    
+    X_data = np.array([DBss["md"], DBss["mp"], DBss["mprop"], DBss["dV"], DBss["Isp"]]).transpose()
+    y_data = np.array([DBss["Structure"], DBss["Propulsion"], DBss["Power"], DBss["Avionics"], DBss["Thermal Protection"], DBss["Other"]]).transpose()
+    
+    while er > tol:
+        STR_model = MPowR_model[0]
+        # print("STR_model", STR_model)
+        PRPL_model = MPowR_model[1]
+        # print("PRPL_model", PRPL_model)
+        POW_model = MPowR_model[2]
+        # # print("POW_model", PRPL_model)
+        AVIO_model = MPowR_model[3]
+        # # print("AVIO_model", AVIO_model)
+        THER_model = MPowR_model[4]
+        # # print("THER_model", THER_model)
+        OTH_model = MPowR_model[5]
+        # print("OTH_model", OTH_model)
+        acf = 0.15
+        new_input = np.array([[lander.mt, lander.mp, lander.mprop, lander.dv, lander.Isp]])
+        a = lander.STR = func(new_input, *STR_model)*acf
+        b = lander.PRPLSN =  func(new_input, *PRPL_model)*acf 
+        c = lander.POW = func(new_input, *POW_model)*acf 
+        d = lander.AVIO = func(new_input, *AVIO_model)*acf 
+        e = lander.THER = func(new_input, *THER_model)*acf 
+        f = lander.OTH = func(new_input, *OTH_model)*acf 
+        
+        print("STR", a,"PRPL",  b,"POW",  c,"AVIO",  d,"THER",  e,"OTH",  f)
+        
+        
+        md_i1 = sum([a, b, c, d, e, f])
+        mprop_i1 = f2(mp, md_i1, dv, Isp)
+        # print(i)
+        md_i.append(md_i1)
+        mprop_i.append(mprop_i1)
+        
+        lander.md = float(md_i[-1:][0])
+    
+        lander.mprop = float(mprop_i[-1:][0])
+        
+        lander.mt = float(np.array(md_i[-1:])) + float(np.array(mprop_i[-1:])) + float(np.array(mp))
+        er = 1 - md_i1/md_i[i]
+        
+        print("iter", i, "md", lander.md)
+        i=i+1
+        if i>50:
+            print("divergence")
+            break
+    return lander
+    
+    
 
     lander.mprop = float(mprop_i[-1:][0])
     

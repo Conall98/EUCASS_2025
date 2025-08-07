@@ -107,12 +107,25 @@ import outils as o
 # sizing_errors6, d6 = o.glob_ers_2(o.routine_stat_MLR_iter, DB_ss)
 # sizing_errors7, d7 = o.glob_ers_2(o.routine_I_N2O4_MLR_iter, DB_ss)
 # sizing_errors8, d8 = o.glob_ers_2(o.routine_stat_MLR_noloop, DB_ss)
-sizing_errors9, d9 = o.glob_ers_2(o.routine_MPR_noloop, DB_ss)
+# sizing_errors9, d9 = o.glob_ers_2(o.routine_MPR_noloop, DB_ss)
+sizing_errors10, d10 = o.glob_ers_2(o.routine_multiple_power_regression, DB_ss)
 
 
 #%% Test 7 Multiple Power Regression
 import outils as o
-o.multiple_power_regression(DB_ss)
+MPowR_model = o.MPowR_initialiser(DB_ss)
+#%%
+# LUT = LM_test
+LUT = ESAS_J_test
+
+mp = LM_test.mp
+dv = LM_test.dv
+Isp = LM_test.Isp
+
+multi_power_lander = o.routine_multiple_power_regression(mp, dv, Isp, MPowR_model)
+
+multi_power_lander_ers, ers_dict = o.V_ers_2(LM_test, multi_power_lander, "test1A")
+o.V_ss_plotter(LUT, multi_power_lander, "test1A")
 
 #%% Test 8 validation using ESAS
 
@@ -123,24 +136,6 @@ Isp = LM_test.Isp
 MPR_lander = o.routine_MPR_noloop(mp, dv, Isp)
 
 MPR_lander_ers, ers_dict = o.V_ers_2(LM_test, MPR_lander, "test1A")
-
-#%% TEST 9 Multiple Power law regression
-
-o.multiple_power_regression(DB_ss)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
