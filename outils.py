@@ -23,7 +23,7 @@ from sklearn.preprocessing import PolynomialFeatures
 ######## Regression Modelling #########
 def Linregger(X, y, i):
     # print("i", i)
-    model = linear_model.LinearRegression(fit_intercept=False, positive=False)
+    model = linear_model.LinearRegression(fit_intercept=False, positive=True)
     model.fit(X, y[:, i])
     R2 = model.score(X, y[:, i])
     coefs = model.coef_
@@ -55,6 +55,8 @@ def modeler(ssDB):
     return ss_models
 
 ss_models = modeler(DB_ss)
+
+
 
 #%%
 def flexible_modeler(X_data, target, i):
@@ -88,9 +90,27 @@ def R_squared(features, model, target):
         RSOS = RSOS + (target[i] - model(features[i, :]))  
         TSOS = TSOS + (target[i] - y_hat)**2  
     return 1 - RSOS/TSOS
+
+def R_squared_Pow(features, model, target):
+    RSOS = 0
+    TSOS = 0
+    y_hat = np.mean(target)
+    # prediction = func(features[i, :], *STR_model)
+    for i in range(0, len(target)):
+        RSOS = RSOS + (target[i] - func(features[i, :], *model))**2  
+        print("data - prediction", target[i], "-", func(features[i, :], *model)**2)
+        TSOS = TSOS + (target[i] - y_hat)**2  
+        print("data - average", target[i], "-", y_hat)
+        print("RSOS", RSOS)
+        print("TSOS", TSOS)
+    return 1 - RSOS/TSOS
+
+
 #%%
 def func(X, a1, a2, a3, a4, a5, b1, b2, b3, b4, b5):
     x1, x2, x3, x4, x5 = X.T  # transpose to unpack columns
+    # print("X", X.T)
+    # print("coefs", a1, a2, a3, a4, a5, b1, b2, b3, b4, b5)
     return a1*x1**b1 + a2*x2**b2 + a3*x3**b3 + a4*x4**b4 + a5*x5**b5
 
 # def func(X, a1, a2, a3, a4, a5, b1, b2, b3, b4, b5):
@@ -110,8 +130,8 @@ def multiple_power_regression(X, y):  # for predicting 6 targets using 5 feature
     [0]*5 + [-np.inf]*5,  # a1–a5 >= 0, b1–b5 unrestricted
     [np.inf]*10)
     
-    popt, pcov = curve_fit(func, xdata, ydata, p0=initial_guess, bounds=bounds, maxfev=1000000)
-
+    popt, pcov = curve_fit(func, xdata, ydata, p0=initial_guess, full_output = False, bounds=bounds, maxfev=1000000)
+    # print(pcov)
     return popt
     
 #%%
@@ -152,22 +172,15 @@ def MPR(X, y, degree=2):
     return ss_models, X_poly
 
 #%%
-
-
-
-
-
-
-#%%
 def m_predict(model, features):
     poly = PolynomialFeatures(degree=2, include_bias=False)
     X_poly = poly.fit_transform(features).transpose()
-    print("model shape", np.shape(model[:, :-2]))
-    print("features shape", np.shape(X_poly))
-    print("interepts shape", np.shape(model[:, -2]))
+    # print("model shape", np.shape(model[:, :-2]))
+    # print("features shape", np.shape(X_poly))
+    # print("interepts shape", np.shape(model[:, -2]))
     # for i in range(len(model[:, 0])): 
     prediction = np.dot(model[:, :-2], X_poly) #+ model[:, -2]
-    print("prediction shape", np.shape(prediction))
+    # print("prediction shape", np.shape(prediction))
     return prediction 
 
 #%% initial functions
@@ -187,6 +200,7 @@ def f3(mp, mprop):
 
 def STR_MPowR(X_data, y_data):
     STR_model = multiple_power_regression(X_data, y_data[:, 0])
+    # print("X_data", X_data, "y_data", y_data[:, 0])
     return STR_model
 
 def PRPL_MPowR(X_data, y_data):
@@ -214,9 +228,9 @@ def MPowR_initialiser(DBss):
     y_data = np.array([DBss["Structure"], DBss["Propulsion"], DBss["Power"], DBss["Avionics"], DBss["Thermal Protection"], DBss["Other"]]).transpose()
     return STR_MPowR(X_data, y_data), PRPL_MPowR(X_data, y_data), POW_MPowR(X_data, y_data), AVIO_MPowR(X_data, y_data), THER_MPowR(X_data, y_data), OTH_MPowR(X_data, y_data)
 
+MPowR_model = MPowR_initialiser(DB_ss)
 
-
-#%%
+#%% linear and multiple linear sizing functions ##########"
 def AVIO(md, mp):
     return (md+mp)*0.0156
 
@@ -304,7 +318,14 @@ def PRPL_Isaji_storable(md, mp, FT, Isp): #direct Isaji estimation for storable 
     
     rho = ((FT.rho_fuel) + (FT.rho_lox)*FT.MR)/FT.MR
     # Isp = FT.Isp
+    # print("m_inert             ", m_inert)
+    # print("m_inert**1.811      ", m_inert**1.811)
+    # print("rho**(-0.4262)      ", rho**(-0.4262))
+    # print("Isp**-1.201         ", Isp**-1.201)
+    # # print("m_prpln             ", m_prpln)
     m_prpln = (m_inert**1.811)*(rho**(-0.4262))*(Isp**-1.201)+245.3
+    
+    
     return m_prpln
 
 #%%
@@ -352,7 +373,7 @@ def routine_Ramos_N2O4(mp, dv, Isp): #uses the ramos propulsion sizing routine
         # print(i)
         md_i.append(md_i1)
         mprop_i.append(mprop_i1)
-        er = 1 - md_i1/md_i[i]
+        er = abs(1 - md_i1/md_i[i])
         i = i+1
         lander.md = md_i[-1:]
         
@@ -406,7 +427,7 @@ def routine_Ramos_N2O4_iter(mp, dv, Isp): #uses the ramos propulsion sizing rout
         # print(i)
         md_i.append(md_i1)
         mprop_i.append(mprop_i1)
-        er = 1 - md_i1/md_i[i]
+        er = abs(1 - md_i1/md_i[i])
         i = i+1
         lander.md = md_i[-1:]
         
@@ -450,7 +471,7 @@ def routine_Isaji_N2O4(mp, dv, Isp): #uses the ramos propulsion sizing routine
         # print(i)
         md_i.append(md_i1)
         mprop_i.append(mprop_i1)
-        er = 1 - md_i1/md_i[i]
+        er = abs(1 - md_i1/md_i[i])
         i = i+1
         
         lander.md = md_i[-1:]
@@ -499,7 +520,7 @@ def routine_Isaji_N2O4_MLR(mp, dv, Isp):
         # print(i)
         md_i.append(md_i1)
         mprop_i.append(mprop_i1)
-        er = 1 - md_i1/md_i[i]
+        er = abs(1 - md_i1/md_i[i])
         i = i+1
         lander.md = md_i[-1:]
         lander.mprop = mprop_i[-1:]
@@ -545,7 +566,7 @@ def routine_stat_MLR_iter(mp, dv, Isp):
         # print(i)
         md_i.append(md_i1)
         mprop_i.append(mprop_i1)
-        er = 1 - md_i1/md_i[i]
+        er = abs(1 - md_i1/md_i[i])
         i = i+1
         
         lander.md = float(md_i[-1:][0])
@@ -642,7 +663,7 @@ def routine_Ramos_Cryo(mp, dv, Isp): #uses the ramos propulsion sizing routine
         
         md_i.append(md_i1)
         mprop_i.append(mprop_i1)
-        er = 1 - md_i1/md_i[i]
+        er = abs(1 - md_i1/md_i[i])
         i = i+1
         lander.md = md_i[-1:]
         lander.mprop = mprop_i[-1:]
@@ -709,7 +730,7 @@ def routine_I_N2O4_MLR_iter(mp, dv, Isp):
     
     lander = L("Test lander 1", mp, md_0, mprop_0, mt_0, dv, Isp)
     
-    
+    acf = 0.8
     while er > tol:
         b = lander.PRPLSN = PRPL_Isaji_storable(md_i[i], mp, FT, Isp)
         X = np.array([lander.md, mp, lander.mprop, Isp, dv])
@@ -724,14 +745,24 @@ def routine_I_N2O4_MLR_iter(mp, dv, Isp):
         # print(i)
         md_i.append(md_i1)
         mprop_i.append(mprop_i1)
-        er = 1 - md_i1/md_i[i]
-        i = i+1
+        er = abs(1 - md_i1/md_i[i])
         
-        lander.md = float(md_i[-1:][0])
+        
+        lander.md = float(md_i[-1:][0])*acf
 
         lander.mprop = float(mprop_i[-1:][0])
         
         lander.mt = float(np.array(md_i[-1:])) + float(np.array(mprop_i[-1:])) + float(np.array(mp))
+        
+        # print("acf:                      ", acf)
+        # print("er:                       ", er)
+        # print("initial md guess:         ", md_0)
+        # print("md_i from the lase iter:  ", md_i[i])
+        # print("md from this iter:        ", md_i1)
+        # print("PRPL:                      ", b)
+        # # store.append(a)
+        # print("iter:                     ", i)
+        i = i+1
         
         if i>100:
             print("divergence")
@@ -772,7 +803,7 @@ def Isaji_imitator(mp, dv, Isp, Dsm, Ncrw, C_other):
         # print(i)
         md_i.append(md_i1)
         mprop_i.append(mprop_i1)
-        er = 1 - md_i1/md_i[i]
+        er = abs(1 - md_i1/md_i[i])
         i = i+1
         
         lander.md = float(md_i[-1:][0])
@@ -829,9 +860,9 @@ def Progessive_MLR_Sizing(mp, dv, Isp, DBss):
         # print("length of ss_list", len(ss_list))
         model1 = linear_model.LinearRegression(fit_intercept=False, positive=True) #initialise the model
         y_data_i = DBss[ss_list[sorted_indices[i]]] #initialise the target data
-        print("subsystem: ", ss_list[sorted_indices[i]])
+        # print("subsystem: ", ss_list[sorted_indices[i]])
         model1.fit(X_data_star, y_data_i) #fit the feature and the first target
-        print("regression score", model1.score(X_data_star, y_data_i))
+        # print("regression score", model1.score(X_data_star, y_data_i))
         # print("features being fitted: ", len(X_data_star[0, :]))
         # print("target being fitted: ", np.shape(y_data_i))
         # print(model1)
@@ -844,7 +875,7 @@ def Progessive_MLR_Sizing(mp, dv, Isp, DBss):
         # print("new features: ", X_data_star)
         # print("X_data_star:", X_data_star)
         X_star = np.append(X_star, y1).reshape(-1, 1).transpose()#adding the predicted target to the input feautures
-        print("target", y1)
+        # print("target", y1)
         preds.append(y1)
     
     b = lander.PRPLSN = preds[0]
@@ -893,7 +924,7 @@ def routine_MPR_noloop(mp, dv, Isp):
     
     
     
-    models, X_poly = MPR(X_data, y_data, 0)
+    models, X_poly = MPR(X_data, y_data, 2)
     input_array = np.array([lander.md, lander.mp, lander.mprop, lander.dv, lander.Isp])
     poly = PolynomialFeatures(degree=2, include_bias=False)
     input_array_transformed = poly.fit_transform(input_array.reshape(1,-1))
@@ -919,12 +950,20 @@ def routine_MPR_noloop(mp, dv, Isp):
     
     lander.md = float(md_i[-1:][0])
     
+    lander.mprop = float(mprop_i[-1:][0])
+    
+    lander.mt = float(np.array(md_i[-1:])) + float(np.array(mprop_i[-1:])) + float(np.array(mp))
+    
+    return lander
+    
 #%%
 def routine_multiple_power_regression(mp, dv, Isp, MPowR_model):
     DBss = DB_ss
     md_0 = f1(mp)
+    
     # print("md_0 in routuine_Ramos_Cryo: ", md_0)
     mprop_0 = f2(mp, md_0, dv, Isp)
+    
     # print("mprop_0 in routuine_Ramos_Cryo: ", mprop_0)
     mt_0 = mp + md_0 + mprop_0
         
@@ -940,7 +979,9 @@ def routine_multiple_power_regression(mp, dv, Isp, MPowR_model):
     
     X_data = np.array([DBss["md"], DBss["mp"], DBss["mprop"], DBss["dV"], DBss["Isp"]]).transpose()
     y_data = np.array([DBss["Structure"], DBss["Propulsion"], DBss["Power"], DBss["Avionics"], DBss["Thermal Protection"], DBss["Other"]]).transpose()
+    store = []
     
+    acf = 0.01
     while er > tol:
         STR_model = MPowR_model[0]
         # print("STR_model", STR_model)
@@ -954,43 +995,48 @@ def routine_multiple_power_regression(mp, dv, Isp, MPowR_model):
         # # print("THER_model", THER_model)
         OTH_model = MPowR_model[5]
         # print("OTH_model", OTH_model)
-        acf = 0.15
+        
         new_input = np.array([[lander.mt, lander.mp, lander.mprop, lander.dv, lander.Isp]])
-        a = lander.STR = func(new_input, *STR_model)*acf
-        b = lander.PRPLSN =  func(new_input, *PRPL_model)*acf 
-        c = lander.POW = func(new_input, *POW_model)*acf 
-        d = lander.AVIO = func(new_input, *AVIO_model)*acf 
-        e = lander.THER = func(new_input, *THER_model)*acf 
-        f = lander.OTH = func(new_input, *OTH_model)*acf 
+        a = lander.STR = func(new_input, *STR_model)
+        # b=c=d=e=f=1
+        b = lander.PRPLSN =  func(new_input, *PRPL_model)
+        c = lander.POW = func(new_input, *POW_model)
+        d = lander.AVIO = func(new_input, *AVIO_model)
+        e = lander.THER = func(new_input, *THER_model)
+        f = lander.OTH = func(new_input, *OTH_model)
         
-        print("STR", a,"PRPL",  b,"POW",  c,"AVIO",  d,"THER",  e,"OTH",  f)
-        
-        
-        md_i1 = sum([a, b, c, d, e, f])
+        # print("STR", a,"PRPL",  b,"POW",  c,"AVIO",  d,"THER",  e,"OTH",  f)
+        # print("STR", a)
+        # 
+        md_i1 = sum([a, b, c, d, e, f])*acf
+        # print("uncorrected md: ", sum([a, b, c, d, e, f]))
+        # print("corrected md  : ", sum([a, b, c, d, e, f])*acf)
         mprop_i1 = f2(mp, md_i1, dv, Isp)
         # print(i)
         md_i.append(md_i1)
         mprop_i.append(mprop_i1)
         
-        lander.md = float(md_i[-1:][0])
+        lander.md = (float(md_i[-1:][0]))
     
         lander.mprop = float(mprop_i[-1:][0])
         
         lander.mt = float(np.array(md_i[-1:])) + float(np.array(mprop_i[-1:])) + float(np.array(mp))
-        er = 1 - md_i1/md_i[i]
         
-        print("iter", i, "md", lander.md)
+        er = abs(1 - md_i1/md_i[i])
+        # acf = md_i[i]/(md_i1) #the last iter over this iter
+        
+        # print("acf:                      ", acf)
+        # print("er:                       ", er)
+        # print("initial md guess:         ", md_0)
+        # print("md_i from the lase iter:  ", md_i[i])
+        # print("md from this iter:        ", md_i1)
+        # # print("STR:                      ", a)
+        # # store.append(a)
+        # print("iter:                     ", i)
         i=i+1
         if i>50:
             print("divergence")
-            break
-    return lander
-    
-    
-
-    lander.mprop = float(mprop_i[-1:][0])
-    
-    lander.mt = float(np.array(md_i[-1:])) + float(np.array(mprop_i[-1:])) + float(np.array(mp))
+            break    
     
     return lander
 #%%
@@ -1014,7 +1060,7 @@ def V_ers_2(data, pred, testname):
                 "POW:     ":errors[7],
                 "THER:   ":errors[8],
                 "OTH:     ":errors[9]}
-    
+    # print(ers_dic["mp:      "])
 
     return np.array(errors), ers_dic
 # #%%
@@ -1174,16 +1220,22 @@ def glob_ers_2(Algo_under_test, DB):
         dv = float(DB["dV"][i])
         Isp = float(DB["Isp"][i]) 
         
-        pred = Algo_under_test(mp, dv, Isp)
-        # print(pred.mt, pred.md, pred.mprop, pred.mp, float(pred.STR), float(pred.PRPLSN), float(pred.AVIO), float(pred.POW), float(pred.THER), float(pred.OTH))
-        prediction_values[i, :] = np.array([pred.mt, pred.md, pred.mprop, pred.mp, float(pred.STR), float(pred.PRPLSN), float(pred.AVIO), float(pred.POW), float(pred.THER), float(pred.OTH)])
+        if Algo_under_test == routine_multiple_power_regression:
+            pred = Algo_under_test(mp, dv, Isp, MPowR_model)
+        else :
+            pred = Algo_under_test(mp, dv, Isp)
+            
+        # print("md and mprop:", float(np.array(pred.md)), pred.mprop)
+        prediction_values[i, :] = np.array([pred.mt, float(np.array(pred.md)), float(np.array(pred.mprop)), pred.mp, float(pred.STR), float(pred.PRPLSN), float(pred.AVIO), float(pred.POW), float(pred.THER), float(pred.OTH)])
         ers_i, dump = V_ers_2(data, pred, "ith error")
+        # print("ers_i, mp", ers_i[3])
         glob_ers[:,i] = ers_i
+        # print(glob_ers[:,0])
     for i in range(0, 10):# for the ten mass-properties
         # glob_ers_means[i] = np.mean(glob_ers[:,i])
         # glob_ers_means[i] = np.median(glob_ers[:,i])
         # glob_ers_means[i] = np.median(np.sqrt(glob_ers[:,i]**2))
-        glob_ers_means[i] = np.median(abs(glob_ers[:,i]))
+        glob_ers_means[i] = np.median(abs(glob_ers[i,:]))
     
     return glob_ers_means, prediction_values
         
@@ -1196,14 +1248,14 @@ def MPR_errors(data, pred):
     # print("shape of prediction:", np.shape(pred))
     
     for i in range(0, len(data[:, 0])):
-        print("i", i)
+        # print("i", i)
         raw_ers = []
         for k in range(0, len(data[0, :])):
-            print("k", k)
-            print("pred[{0}, {1}]".format(i, k), pred[i, k])
-            print("data[{0}, {1}]".format(i, k), data[i, k])
+            # print("k", k)
+            # print("pred[{0}, {1}]".format(i, k), pred[i, k])
+            # print("data[{0}, {1}]".format(i, k), data[i, k])
             raw_ers.append(np.round(float((pred[i, k] - data[i, k])/(data[i, k])), 4)*100)
-        print(raw_ers)
+        # print(raw_ers)
         ss_ers_avg[i] = np.median(raw_ers)
     
     return ss_ers_avg
