@@ -14,9 +14,11 @@ import numpy as np
 from DBs import *
 import tank_sizing_subroutine as tn
 from scipy.optimize import curve_fit
+# from scipy.optimize import least_squares
 import logging
 import matplotlib.pyplot as plt
 from sklearn import linear_model
+import math as m
 
 from sklearn.preprocessing import PolynomialFeatures
 #%%
@@ -98,11 +100,11 @@ def R_squared_Pow(features, model, target):
     # prediction = func(features[i, :], *STR_model)
     for i in range(0, len(target)):
         RSOS = RSOS + (target[i] - func(features[i, :], *model))**2  
-        print("data - prediction", target[i], "-", func(features[i, :], *model)**2)
+        # print("data - prediction", target[i], "-", func(features[i, :], *model)**2)
         TSOS = TSOS + (target[i] - y_hat)**2  
-        print("data - average", target[i], "-", y_hat)
-        print("RSOS", RSOS)
-        print("TSOS", TSOS)
+        # print("data - average", target[i], "-", y_hat)
+        # print("RSOS", RSOS)
+        # print("TSOS", TSOS)
     return 1 - RSOS/TSOS
 
 
@@ -111,7 +113,13 @@ def func(X, a1, a2, a3, a4, a5, b1, b2, b3, b4, b5):
     x1, x2, x3, x4, x5 = X.T  # transpose to unpack columns
     # print("X", X.T)
     # print("coefs", a1, a2, a3, a4, a5, b1, b2, b3, b4, b5)
-    return a1*x1**b1 + a2*x2**b2 + a3*x3**b3 + a4*x4**b4 + a5*x5**b5
+    A = a1*x1**b1
+    B = a2*x2**b2
+    C = a3*x3**b3
+    D = a4*x4**b4 
+    E = a5*x5**b5
+    
+    return A + B + C + D + E
 
 # def func(X, a1, a2, a3, a4, a5, b1, b2, b3, b4, b5):
 #     x1, x2, x3, x4, x5 = X.T  # transpose to unpack columns
@@ -125,15 +133,17 @@ def multiple_power_regression(X, y):  # for predicting 6 targets using 5 feature
 
     # Fit the function to just the "Structure" target
     initial_guess = [0.5, 0.5, 0.5, 0.5, 0.5,   # a1 to a5
-                 0.5, 0.5, 0.5, 0.5, 0.5]   # b1 to b5
+                  0.5, 0.5, 0.5, 0.5, 0.5]   # b1 to b5
     bounds = (
     [0]*5 + [-np.inf]*5,  # a1–a5 >= 0, b1–b5 unrestricted
     [np.inf]*10)
     
-    popt, pcov = curve_fit(func, xdata, ydata, p0=initial_guess, full_output = False, bounds=bounds, maxfev=1000000)
+    popt, pcov = curve_fit(func, X, y, p0=initial_guess, full_output = False, bounds=bounds, maxfev=1000000)
     # print(pcov)
     return popt
     
+
+
 #%%
 def MPR(X, y, degree=2):
     # Ensure X and y are both 2D
@@ -228,7 +238,7 @@ def MPowR_initialiser(DBss):
     y_data = np.array([DBss["Structure"], DBss["Propulsion"], DBss["Power"], DBss["Avionics"], DBss["Thermal Protection"], DBss["Other"]]).transpose()
     return STR_MPowR(X_data, y_data), PRPL_MPowR(X_data, y_data), POW_MPowR(X_data, y_data), AVIO_MPowR(X_data, y_data), THER_MPowR(X_data, y_data), OTH_MPowR(X_data, y_data)
 
-MPowR_model = MPowR_initialiser(DB_ss)
+# MPowR_model = MPowR_initialiser(DB_ss)
 
 #%% linear and multiple linear sizing functions ##########"
 def AVIO(md, mp):
@@ -269,6 +279,48 @@ def POW2(X):
 
 def POW_Isaji(Dsm, Ncrw, md):
     return (Dsm**1.784)*(Ncrw**(-0.2694))*((md/1000)**1.384) + 636
+
+def POW_SSR_battery(peak_power, average_power, mission_duration):
+    v_req = 28 #volts
+    p_req = peak_power #Watts
+#    print("p_req is of type:", type(p_req), p_req)
+    ##############Battery##################
+    
+    energy_req = average_power*mission_duration #Wh
+    
+    bcell_mass = 1.13 #kg
+    bcell_volume = 0.551 #U
+    bcell_voltage = 4 #V
+    bcell_ampage = 45 #Ah
+    discharge_limit = 0.8
+    
+    bc_series = m.ceil(v_req/bcell_voltage)
+    bc_parallel = m.ceil((p_req/v_req)/bcell_ampage)
+    charge_req = (energy_req/v_req)/discharge_limit #Ah
+    
+    total_cells = bc_parallel*bc_series
+    battery_mass = total_cells*bcell_mass
+#    print(battery_mass)
+#    print(charge_req)
+    battery_volume = total_cells*bcell_volume    
+
+
+    return np.round(battery_mass)
+
+    
+def POW_SSR_fuelcell(peak_power, average_power, mission_duration):
+    p_req = peak_power #W
+    e_req = average_power*mission_duration #Wh
+    
+    fuel_cell_specific_power = 101 #W/kg
+    fuel_cell_specific_energy = 0.002 #kg/Wh
+    
+    # print("p_req", p_req)
+    # print("e_req", p_req)
+    # print("p_req/fuel_cell_specific_power", p_req/fuel_cell_specific_power)
+    # print("e_req*fuel_cell_specific_energy", e_req*fuel_cell_specific_energy)
+    
+    return p_req/fuel_cell_specific_power, e_req*fuel_cell_specific_energy
 
 def THER(mt_0):
     return mt_0*0.0139
@@ -982,19 +1034,20 @@ def routine_multiple_power_regression(mp, dv, Isp, MPowR_model):
     store = []
     
     acf = 0.01
+    STR_model = MPowR_model[0]
+    # print("STR_model", STR_model)
+    PRPL_model = MPowR_model[1]
+    # print("PRPL_model", PRPL_model)
+    POW_model = MPowR_model[2]
+    # # print("POW_model", PRPL_model)
+    AVIO_model = MPowR_model[3]
+    # # print("AVIO_model", AVIO_model)
+    THER_model = MPowR_model[4]
+    # # print("THER_model", THER_model)
+    OTH_model = MPowR_model[5]
+    # print("OTH_model", OTH_model)
     while er > tol:
-        STR_model = MPowR_model[0]
-        # print("STR_model", STR_model)
-        PRPL_model = MPowR_model[1]
-        # print("PRPL_model", PRPL_model)
-        POW_model = MPowR_model[2]
-        # # print("POW_model", PRPL_model)
-        AVIO_model = MPowR_model[3]
-        # # print("AVIO_model", AVIO_model)
-        THER_model = MPowR_model[4]
-        # # print("THER_model", THER_model)
-        OTH_model = MPowR_model[5]
-        # print("OTH_model", OTH_model)
+
         
         new_input = np.array([[lander.mt, lander.mp, lander.mprop, lander.dv, lander.Isp]])
         a = lander.STR = func(new_input, *STR_model)
@@ -1026,16 +1079,16 @@ def routine_multiple_power_regression(mp, dv, Isp, MPowR_model):
         # acf = md_i[i]/(md_i1) #the last iter over this iter
         
         # print("acf:                      ", acf)
-        # print("er:                       ", er)
-        # print("initial md guess:         ", md_0)
-        # print("md_i from the lase iter:  ", md_i[i])
-        # print("md from this iter:        ", md_i1)
+        print("er:                       ", er)
+        print("initial md guess:         ", md_0)
+        print("md_i from the lase iter:  ", md_i[i])
+        print("md from this iter:        ", md_i1)
         # # print("STR:                      ", a)
         # # store.append(a)
-        # print("iter:                     ", i)
+        print("iter:                     ", i)
         i=i+1
         if i>50:
-            print("divergence")
+            print("divergence, i=", i)
             break    
     
     return lander
@@ -1221,6 +1274,7 @@ def glob_ers_2(Algo_under_test, DB):
         Isp = float(DB["Isp"][i]) 
         
         if Algo_under_test == routine_multiple_power_regression:
+            MPowR_model = MPowR_initialiser(DB_ss)
             pred = Algo_under_test(mp, dv, Isp, MPowR_model)
         else :
             pred = Algo_under_test(mp, dv, Isp)

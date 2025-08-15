@@ -19,7 +19,7 @@ ss_models = o.modeler(DB_ss)
 A = np.array([DB_ss["md"], DB_ss["mp"], DB_ss["mprop"], DB_ss["dV"], DB_ss["Isp"]]).transpose()
 B = np.array([DB_ss["Structure"], DB_ss["Propulsion"], DB_ss["Power"], DB_ss["Avionics"], DB_ss["Thermal Protection"], DB_ss["Other"]]).transpose()
 MPR_models, MPR_features = o.MPR(A, B, 2)
-
+MPowR_model = o.MPowR_initialiser(DB_ss)
 #%% Main
 ### inputs
 import outils as o
@@ -111,26 +111,22 @@ import outils as o
 # sizing_errors9, d9 = o.glob_ers_2(o.routine_MPR_noloop, DB_ss)
 sizing_errors10, d10 = o.glob_ers_2(o.routine_multiple_power_regression, DB_ss)
 
-
-#%% Test 7 Multiple Power Regression
-import outils as o
-MPowR_model = o.MPowR_initialiser(DB_ss)
 #%%
 import outils as o
-# LUT = LM_test
-LUT = ESAS_J_test
+LUT = LM_test
+# LUT = ESAS_J_test
 
 mp = LUT.mp
 dv = LUT.dv
 Isp = LUT.Isp
 
-multi_power_lander = o.routine_multiple_power_regression(mp, dv, Isp, MPowR_model)
+multi_power_lander = o.routine_multiple_power_regression(mp, dv, Isp, o.MPowR_model)
 # print(storage)
 # plt.figure()
 # plt.plot(storage)
 
-multi_power_lander_ers, ers_dict = o.V_ers_2(LM_test, multi_power_lander, "test1A")
-o.V_ss_plotter(LUT, multi_power_lander, "test1A")
+# multi_power_lander_ers, ers_dict = o.V_ers_2(LUT, multi_power_lander, "test1A")
+# o.V_ss_plotter(LUT, multi_power_lander, "test1A")
 
 #%% Test 8 validation using ESAS
 
@@ -163,17 +159,55 @@ R2_THER = o.R_squared_Pow(A, THER_Pow_model, B[:,4])
 OTH_Pow_model = o.OTH_MPowR(A,B)
 R2_OTH = o.R_squared_Pow(A, OTH_Pow_model, B[:,5])
 
+#%% Multiple Power Regression function investigation
+# import outils as o
+LUT = LM_test
+# LUT = ESAS_J_test
+mp = LUT.mp
+dv = LUT.dv
+Isp = LUT.Isp
+
+target = B[:,3]
+powers = o.multiple_power_regression(A, target)
+R2 = o.R_squared_Pow(A, powers, target)
+test_input = np.array([[LUT.md, LUT.mp, LUT.mprop, LUT.dv, LUT.Isp]])
+for i in range(5):
+    print("{}*{}^{}".format(np.round(powers[i], 4), test_input[:,i], np.round(powers[i+5], 2)))
+print("R2", R2)
+prediction = o.func(test_input, *powers)
+print("prediction", prediction)
+
+test_mds = np.linspace(0, max(DB_ss["md"]), len(target))
+test_mps = np.linspace(0, max(DB_ss["mp"]), len(target))
+test_x = test_mds+test_mps
+pred_line = []
+
+plt.figure()
+plt.xlabel("$m_d [kg]$")
+# plt.ylabel("$m_{STR} [kg]$")
+for i in range(0, len(target)):
+    LUT = DB_2_class(DB_ss, i)
+    test_input = np.array([[LUT.md, LUT.mp, LUT.mprop, LUT.dv, LUT.Isp]])
+    prediction = o.func(test_input, *powers)
+    plt.scatter(LUT.md, prediction, color = "orange")
+    plt.scatter(LUT.md, LUT.STR, color = "blue")
+    
+    test_line = np.array([[test_mds[i], 
+                           test_mps[i], 
+                           np.median(DB_ss["mprop"]), 
+                           np.median(DB_ss["dV"]), 
+                           np.median(DB_ss["Isp"])]])
+    pred_line.append(o.func(test_line, *powers))
+
+# plt.plot(test_mds, pred_line, color = "orange", linestyle = "--")
 
 
-
-
-
-
-
-
-
-
-
+#%% POW_ssr
+p_req = 2000
+ap_req = 2000
+D_m = 4.7*24 #hrs
+SSR_power_fuel_cell, SSR_fuel_cell_propellant = o.POW_SSR_fuelcell(p_req , ap_req, D_m) #(peak_power, average_power, mission_duration)
+SSR_power_battery = o.POW_SSR_battery(p_req , ap_req, D_m) #(peak_power, average_power, mission_duration)
 
 
 
