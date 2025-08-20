@@ -280,39 +280,52 @@ def POW2(X):
 def POW_Isaji(Dsm, Ncrw, md):
     return (Dsm**1.784)*(Ncrw**(-0.2694))*((md/1000)**1.384) + 636
 
-def POW_SSR_battery(peak_power, average_power, mission_duration):
-    v_req = 28 #volts
-    p_req = peak_power #Watts
-#    print("p_req is of type:", type(p_req), p_req)
-    ##############Battery##################
+# def POW_SSR_battery_cells(peak_power, average_power, mission_duration):
+#     v_req = 28 #volts
+#     p_req = peak_power #Watts
+# #    print("p_req is of type:", type(p_req), p_req)
+#     ##############Battery##################
     
-    energy_req = average_power*mission_duration #Wh
+#     energy_req = average_power*mission_duration #Wh
     
-    bcell_mass = 1.13 #kg
-    bcell_volume = 0.551 #U
-    bcell_voltage = 4 #V
-    bcell_ampage = 45 #Ah
-    discharge_limit = 0.8
+#     bcell_mass = 1.13 #kg
+#     bcell_volume = 0.551 #U
+#     bcell_voltage = 4 #V
+#     bcell_ampage = 45 #Ah
+#     discharge_limit = 0.8
     
-    bc_series = m.ceil(v_req/bcell_voltage)
-    bc_parallel = m.ceil((p_req/v_req)/bcell_ampage)
-    charge_req = (energy_req/v_req)/discharge_limit #Ah
+#     bc_series = m.ceil(v_req/bcell_voltage)
+#     bc_parallel = m.ceil((p_req/v_req)/bcell_ampage)
+#     charge_req = (energy_req/v_req)/discharge_limit #Ah
     
-    total_cells = bc_parallel*bc_series
-    battery_mass = total_cells*bcell_mass
-#    print(battery_mass)
-#    print(charge_req)
-    battery_volume = total_cells*bcell_volume    
+#     total_cells = bc_parallel*bc_series
+#     battery_mass = total_cells*bcell_mass
+# #    print(battery_mass)
+# #    print(charge_req)
+#     battery_volume = total_cells*bcell_volume    
 
 
-    return np.round(battery_mass)
+#     return np.round(battery_mass)
 
+def POW_SSR_battery(peak_power, average_power, mission_duration): 
+    p_req = peak_power #W
+    e_req = average_power*mission_duration #Wh
+    
+    Li_ion_cell_specific_power = 96 #W/kg #astro-batt from Airbus
+    Li_ion_cell_specific_energy = 1/170 #kg/Wh
+    
+    # print("p_req", p_req)
+    # print("e_req", p_req)
+    # print("p_req/fuel_cell_specific_power", p_req/fuel_cell_specific_power)
+    # print("e_req*fuel_cell_specific_energy", e_req*fuel_cell_specific_energy)
+    
+    return max(p_req/Li_ion_cell_specific_power, e_req*Li_ion_cell_specific_energy)
     
 def POW_SSR_fuelcell(peak_power, average_power, mission_duration):
     p_req = peak_power #W
     e_req = average_power*mission_duration #Wh
     
-    fuel_cell_specific_power = 101 #W/kg
+    fuel_cell_specific_power = 101 #W/kg STS fuel cell chars
     fuel_cell_specific_energy = 0.002 #kg/Wh
     
     # print("p_req", p_req)
@@ -330,6 +343,81 @@ def THER2(X):
     coefs = ther_model[0:5]
     intercept = ther_model[5]
     return np.dot(coefs, X) + intercept
+
+
+def THER_phys(ap_req, D_m, heater, mt):
+    #p_req is the max power requirement
+    #ap_req is the average power requirement
+    #D_m is the duration of the mission
+    T_max = 293 #requirement
+    T_min = 273 #requirement
+    T_surface_night = 120 #K Lunar thermal baseline
+    T_surface_day = 400 #K Lunar thermal baseline
+    s = 5.67E-8 #sigma steffan boltzmann constant W/m2/K4
+    e = 0.3 #emissivity of the spacecraft skin
+    #effective spacecraft emissivity. normally would be the same as MLI properties
+    #but I'm putting this artificially higher to capture the fact that
+    #not all surfaces will be covered MLI
+    alp = 0.01 #absorptivity of the spacecraft skin
+    qI_day = s*T_surface_day**4 # IR from the moon on the surface by stefan-boltzmann law
+    qI_night = s*T_surface_night**4 # IR from the moon on the surface  by stefan-boltzmann law
+    Rho = np.pi/2 # on the surface of the moon
+    D = 3.44*np.sqrt((mt/16194)) #rough major diameter of the spacecraft if it is a sphere
+    #D is scaled around the apollo LM using mt
+    Gs = 1360 #solar flux W/m2
+    a = 0.07 #lunar albedo fraction
+    Ka = 0.664+0.521*Rho - 0.203*Rho#factor accounting for the spherical nature of the moon
+    
+    P1 = (T_max**4)*(s*e)
+    P2 = Gs*alp/4
+    P3 = qI_day*e*(1-np.cos(Rho))/2
+    P4 = Gs*a*alp*Ka*(1-np.cos(Rho))/2
+    P5 = np.pi*D**2
+    # print("P1", P1, "P2", P2, "P3", P3, "P4", P4, "P5", P5)
+    
+    Q_TCS_hot_case = (P1-P2-P3-P4)*P5 - ap_req #the heat needed to get out by radiator to maintain the Tmax
+    
+    P1 = (T_min**4)*(s*e)
+    P2 = Gs*alp/4
+    P3 = qI_night*e*(1-np.cos(Rho))/2
+    P4 = Gs*a*alp*Ka*(1-np.cos(Rho))/2
+    P5 = np.pi*D**2
+    # print("P1", P1, "P2", P2, "P3", P3, "P4", P4, "P5", P5)
+    
+    Q_TCS_cold_case = (P1 - P3)*P5 - ap_req #the heat needed to generate by heater to maintain the Tmin 
+    # Q_hot_case = ((T_max**4)*(s*e) - Gs*alp/4 - qI*e*(1-np.cos(Rho))/2 - Gs*a*alp*Ka*(1-np.cos(Rho))/2)*np.pi*D**2
+    
+    # print("Q_TCS_cold_case", Q_TCS_cold_case,"Q_TCS_hot_case", Q_TCS_hot_case)
+    
+    radiator_efficiency = 50 #W/kg
+    if Q_TCS_hot_case < 0:
+        radiator_mass = abs(Q_TCS_hot_case/radiator_efficiency)
+    elif Q_TCS_hot_case >= 0:
+        radiator_mass  = 0  
+    
+    electric_heater_efficiency = 10000 #W/kg 
+    nuclear_heater_efficiency = 24 #W/kg
+    if heater == "nuclear":
+        heater_efficiency = nuclear_heater_efficiency
+    else:
+        heater_efficiency = electric_heater_efficiency
+    
+    if D_m > 14:
+        if Q_TCS_cold_case > 0:
+            heater_mass = abs(Q_TCS_cold_case/heater_efficiency)
+        elif Q_TCS_cold_case <= 0:
+            heater_mass  = 0 
+    elif D_m <=14:
+        heater_mass = 0
+    
+    # print("heater_mass", heater_mass, "radiator_mass", radiator_mass)
+    
+    # return heater_mass + radiator_mass
+    MLI_covering = 0.65*np.pi*D**2 # the spacial density of MLI from Chatgpt
+    other_mass = 0.02*mt #other stuff in the TCS
+    TCS_mass = heater_mass + radiator_mass + MLI_covering + other_mass    
+    return TCS_mass
+    
 
 def ECLSS(Dsm, Ncrw, md):
     return 2.258*Dsm*Ncrw*((md/1000)**1.052)+544.7

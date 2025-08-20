@@ -204,10 +204,17 @@ for i in range(0, len(target)):
 
 #%% POW_ssr
 p_req = 2000
-ap_req = 2000
+ap_req = 500
 D_m = 4.7*24 #hrs
 SSR_power_fuel_cell, SSR_fuel_cell_propellant = o.POW_SSR_fuelcell(p_req , ap_req, D_m) #(peak_power, average_power, mission_duration)
 SSR_power_battery = o.POW_SSR_battery(p_req , ap_req, D_m) #(peak_power, average_power, mission_duration)
+
+#%% THER
+ap_req = 300
+D_m = 15
+heater = "not nuclear"
+mt = 16000
+o.THER_phys(ap_req, D_m, heater, mt)
 
 
 
