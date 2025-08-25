@@ -10,3 +10,9 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
 from IAC25_outils import *
 #%%
+
+mp = 2000
+dv = 2500
+Isp = 350
+
+lander = IAC_sizing_algorithm(mp, dv, Isp, MPow_ss_models)
