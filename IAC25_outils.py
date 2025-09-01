@@ -10,7 +10,9 @@ import sys
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
 from IAC25_DBs import *
-
+import time
+start = time.perf_counter()
+degree = 2
 #%% Formatting Functions
 
 def Isaji_converter(L1): #converts ORLA landers into Isaji Landers
@@ -49,132 +51,6 @@ def R_squared_Pow(features, model, target):
         # print("TSOS", TSOS)
     return 1 - RSOS/TSOS
 
-#%% The Modelling
-def power_func(X, a1, a2, a3, a4, a5, b1, b2, b3, b4, b5):
-    x1, x2, x3, x4, x5 = X.T  # transpose to unpack columns
-    # print("X", X.T)
-    # print("coefs", a1, a2, a3, a4, a5, b1, b2, b3, b4, b5)
-    A = a1*x1**b1
-    B = a2*x2**b2
-    C = a3*x3**b3
-    D = a4*x4**b4 
-    E = a5*x5**b5
-    
-    return A + B + C + D + E
-
-# def func(X, a1, a2, a3, a4, a5, b1, b2, b3, b4, b5):
-#     x1, x2, x3, x4, x5 = X.T  # transpose to unpack columns
-#     return (a1*x1**b1)*(a2*x2**b2)*(a3*x3**b3)*(a4*x4**b4)*(a5*x5**b5)
-#%%
-def multiple_power_regression(X, y):  # for predicting 6 targets using 5 features
-    # xdata = np.array([DBss["md"], DBss["mp"], DBss["mprop"], DBss["dV"], DBss["Isp"]]).T
-    # ydata = np.array(DBss["Structure"])  # single target (1D)
-    xdata = X
-    ydata = y
-
-    # Fit the function to just the "Structure" target
-    initial_guess = [0.5, 0.5, 0.5, 0.5, 0.5,   # a1 to a5
-                  0.5, 0.5, 0.5, 0.5, 0.5]   # b1 to b5
-    bounds = (
-    [0]*5 + [-np.inf]*5,  # a1–a5 >= 0, b1–b5 unrestricted
-    [np.inf]*10)
-    
-    popt, pcov = curve_fit(func, X, y, p0=initial_guess, full_output = False, bounds=bounds, maxfev=1000000)
-    # print(pcov)
-    return popt
-
-def MPowR_initialiser(DBss):
-    X_data = np.array([DBss["md"], DBss["mp"], DBss["mprop"], DBss["dV"], DBss["Isp"]]).transpose()
-    y_data = np.array([DBss["Structure"], DBss["Propulsion"], DBss["Power"], DBss["Avionics"], DBss["Thermal Protection"], DBss["Other"]]).transpose()
-    
-    STR_model = multiple_power_regression(X_data, y_data[:, 0])
-    PRPL_model = multiple_power_regression(X_data, y_data[:, 1])
-    POW_model = multiple_power_regression(X_data, y_data[:, 2])
-    AVIO_model = multiple_power_regression(X_data, y_data[:, 3])
-    THER_model = multiple_power_regression(X_data, y_data[:, 4])
-    OTH_model = multiple_power_regression(X_data, y_data[:, 5])
-    
-    return STR_model, PRPL_model, POW_model, AVIO_model, THER_model, OTH_model
-
-def Multiple_linear_regression(X, y, i):
-    # print("i", i)
-    model = linear_model.LinearRegression(fit_intercept=False, positive=True)
-    model.fit(X, y[:, i])
-    R2 = model.score(X, y[:, i])
-    coefs = model.coef_
-    intercept =  model.intercept_
-    preds = model.predict([X[0]])
-    manual_pred = np.dot(coefs, X[0]) + model.intercept_
-    if abs(preds[0] - manual_pred) > 0.5:
-        logging.warning("Manual Prediction and model.predict() do not agree")
-        
-    
-    # print("predicted y", preds)
-    # print("manual_preds", manual_pred)
-    # print("actual y", y[0, i])
-    # print(preds == manual_pred)
-    return coefs, intercept, R2
-
-def MLR_initialiser(ssDB):
-    X_data = np.array([ssDB["md"], ssDB["mp"], ssDB["mprop"], ssDB["dV"], ssDB["Isp"]]).transpose()
-    y_data = np.array([ssDB["Structure"], ssDB["Propulsion"], ssDB["Power"], ssDB["Avionics"], ssDB["Thermal Protection"], ssDB["Other"]]).transpose()
-    ss_models = np.zeros([6, 7]) #six row(predictions), five coefficients + one intercept for each pred
-    Rs = []
-    for i in range(0, 6):
-        coefs, inter, r2 = Multiple_linear_regression(X_data, y_data, i)
-        ss_models[i, 0:5] = coefs
-        ss_models[i, 5:6] = inter
-        ss_models[i, 6] = r2
-        Rs.append(r2)
-    
-    return ss_models
-
-def MPR(X, y, degree=2):
-    # Ensure X and y are both 2D
-    if X.ndim == 1:
-        X = X.reshape(-1, 1)
-    if y.ndim == 1:
-        y = y.reshape(-1, 1)
-
-    # Polynomial feature transformation
-    poly = PolynomialFeatures(degree=degree, include_bias=False)
-    X_poly = poly.fit_transform(X)
-
-    # Set up regression model
-    model = linear_model.LinearRegression(fit_intercept=False, positive=False)
-    model.fit(X_poly, y)  # Fits all outputs at once
-
-    # Predict the first sample manually to compare
-    x0 = X_poly[0].reshape(1, -1)         # (1, n_features)
-    preds = model.predict(x0)             # shape (1, n_outputs)
-    manual_pred = np.dot(X_poly[0], model.coef_.T) + model.intercept_
-
-    for j in range(preds.shape[1]):
-        if abs(preds[0, j] - manual_pred[j]) > 0.5:
-            logging.warning(f"Disagreement on prediction in output {j}")
-
-    # Prepare summary array: (n_outputs x [n_coefs + intercept + R2])
-    n_outputs = y.shape[1]
-    ss_models = np.zeros((n_outputs, X_poly.shape[1] + 2))
-
-    for i in range(n_outputs):
-        model.fit(X_poly, y[:, i])
-        ss_models[i, :-2] = model.coef_
-        ss_models[i, -2] = model.intercept_
-        ss_models[i, -1] = model.score(X_poly, y[:, i])
-
-    return ss_models, X_poly
-
-def MPR_initialiser(ssDB):
-    X_data = np.array([ssDB["md"], ssDB["mp"], ssDB["mprop"], ssDB["dV"], ssDB["Isp"]]).transpose()
-    y_data = np.array([ssDB["Structure"], ssDB["Propulsion"], ssDB["Power"], ssDB["Avionics"], ssDB["Thermal Protection"], ssDB["Other"]]).transpose()
-    ss_models, _ = MPR(X_data, y_data, degree=2)
-    
-    return ss_models
-#%% Model Initialisation
-linear_ss_models = MLR_initialiser(DB_ss)
-MPow_ss_models = MPowR_initialiser(DB_ss)
-MPoly_ss_models = MPR_initialiser(DB_ss)
     
 #%% Subsystem Sizing Rules
 def f1(mp):
@@ -186,12 +62,67 @@ def f2(mp, md, dv, Isp):# gives mprop with mp+md
 def f3(mp, mprop):
     x = mp+mprop
     return 12.49*x**0.55
+### STRUCTURE ####
 
-def STR_MPR(X):
-    str_model = ss_models[0, :]
-    coefs = str_model[0:5]
+def STR_MLR(X):
+    str_model = linear_ss_models[0, :]
+    coefs = np.array(str_model[0:5])
     intercept = str_model[5]
     return np.dot(coefs, X) + intercept
+
+def STR_MPR(X):
+    str_model = MPoly_ss_models[0, :]
+    coefs = str_model[0:20]
+    intercept = str_model[20]
+    poly = PolynomialFeatures(degree=degree, include_bias=False)
+    X_poly = poly.fit_transform(X.reshape(1, -1)).ravel()    
+    return np.dot(coefs, X_poly) + intercept
+
+def STR_MPowR(X):
+    str_model = MPowR_model[0]
+    return power_func(new_input, *str_model)
+
+### PROPULSION ####
+def PRPL_MLR(X):
+    model = linear_ss_models[1, :]
+    coefs = model[0:5]
+    intercept = model[5]
+    return np.dot(coefs, X) + intercept
+
+def PRPL_MPR(X):
+    model = MPoly_ss_models[1, :]
+    coefs = model[0:20]
+    intercept = model[20]
+    poly = PolynomialFeatures(degree=degree, include_bias=False)
+    X_poly = poly.fit_transform(X.reshape(1, -1)).ravel()    
+    return np.dot(coefs, X_poly) + intercept
+
+def PRPL_MPowR(X):
+    model = MPowR_model[1]
+    return power_func(new_input, *model)
+
+def PRPL_Ramos(md, mprop, mp, FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape): #FT = Fuel type (class), T is Thrust WEIGHT Requirement, MR is O/F mixture ratio
+    m_prpl, m_tanks, m_engines = tn.PRPL(md, mprop, mp, FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape)
+    return m_prpl
+
+### POWER ####
+def POW_MLR(X):
+    model = linear_ss_models[2, :]
+    coefs = model[0:5]
+    intercept = model[5]
+    return np.dot(coefs, X) + intercept
+
+def POW_MPR(X):
+    model = MPoly_ss_models[2, :]
+    coefs = model[0:20]
+    intercept = model[20]
+    poly = PolynomialFeatures(degree=degree, include_bias=False)
+    X_poly = poly.fit_transform(X.reshape(1, -1)).ravel()    
+    return np.dot(coefs, X_poly) + intercept
+
+def POW_MPowR(X):
+    model = MPowR_model[2]
+    return power_func(new_input, *model)
 
 def POW_SSR_battery(peak_power, average_power, mission_duration): 
     p_req = peak_power #W
@@ -207,9 +138,43 @@ def POW_SSR_battery(peak_power, average_power, mission_duration):
     
     return max(p_req/Li_ion_cell_specific_power, e_req*Li_ion_cell_specific_energy)
 
-def PRPL_Ramos(md, mprop, mp, FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape): #FT = Fuel type (class), T is Thrust WEIGHT Requirement, MR is O/F mixture ratio
-    m_prpl, m_tanks, m_engines = tn.PRPL(md, mprop, mp, FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape)
-    return m_prpl
+### AVIO ####
+def AVIO_MLR(X):
+    model = linear_ss_models[3, :]
+    coefs = model[0:5]
+    intercept = model[5]
+    return np.dot(coefs, X) + intercept
+
+def AVIO_MPR(X):
+    model = MPoly_ss_models[3, :]
+    coefs = model[0:20]
+    intercept = model[20]
+    poly = PolynomialFeatures(degree=degree, include_bias=False)
+    X_poly = poly.fit_transform(X.reshape(1, -1)).ravel()    
+    return np.dot(coefs, X_poly) + intercept
+
+def AVIO_MPowR(X):
+    model = MPowR_model[3]
+    return power_func(new_input, *model)
+
+### THERMAL ####
+def THER_MLR(X):
+    model = linear_ss_models[4, :]
+    coefs = model[0:5]
+    intercept = model[5]
+    return np.dot(coefs, X) + intercept
+
+def THER_MPR(X):
+    model = MPoly_ss_models[4, :]
+    coefs = model[0:20]
+    intercept = model[20]
+    poly = PolynomialFeatures(degree=degree, include_bias=False)
+    X_poly = poly.fit_transform(X.reshape(1, -1)).ravel()    
+    return np.dot(coefs, X_poly) + intercept
+
+def THER_MPowR(X):
+    model = MPowR_model[4]
+    return power_func(new_input, *model)
 
 def THER_phys(ap_req, D_m, heater, mt):
     #p_req is the max power requirement
@@ -284,17 +249,64 @@ def THER_phys(ap_req, D_m, heater, mt):
     TCS_mass = heater_mass + radiator_mass + MLI_covering + other_mass    
     return TCS_mass
 
+### OTHER ####
+def OTH_MLR(X):
+    model = linear_ss_models[5, :]
+    coefs = model[0:5]
+    intercept = model[5]
+    return np.dot(coefs, X) + intercept
 
+def OTH_MPR(X):
+    model = MPoly_ss_models[5, :]
+    coefs = model[0:20]
+    intercept = model[20]
+    poly = PolynomialFeatures(degree=degree, include_bias=False)
+    X_poly = poly.fit_transform(X.reshape(1, -1)).ravel()    
+    return np.dot(coefs, X_poly) + intercept
+
+def OTH_MPowR(X):
+    model = MPowR_model[5]
+    return power_func(new_input, *model)
+
+def linear_estimations(X):
+    a = STR_MLR(X)
+    b = PRPL_MLR(X)
+    c = POW_MLR(X)
+    d = AVIO_MLR(X)
+    e = THER_MLR(X)
+    f = OTH_MLR(X)
+    return a, b, c, d, e, f
+
+def polynoial_estimations(X):
+    a = STR_MPR(X)
+    b = PRPL_MPR(X)
+    c = POW_MPR(X)
+    d = AVIO_MPR(X)
+    e = THER_MPR(X)
+    f = OTH_MPR(X)
+    return a, b, c, d, e, f
+
+def powerlaw_estimations(X):
+    a = STR_MPowR(X)
+    b = PRPL_MPowR(X)
+    c = POW_MPowR(X)
+    d = AVIO_MPowR(X)
+    e = THER_MPowR(X)
+    f = OTH_MPowR(X)
+    return a, b, c, d, e, f
 
 #%% The sizing Algorithm
-def IAC_sizing_algorithm(mp, dv, Isp, MPowR_model):
+
+def IAC_sizing_algorithm(mp, dv, Isp, models, max_iter=50, tol=0.01):
     """
     Shamelessly uses a blend of eerything such that the global errors are minimised
     Choose it from main
     
     """
+    
     DBss = DB_ss
     md_0 = f1(mp)
+    t1 = time.perf_counter()
     
     # print("md_0 in routuine_Ramos_Cryo: ", md_0)
     mprop_0 = f2(mp, md_0, dv, Isp)
@@ -313,10 +325,10 @@ def IAC_sizing_algorithm(mp, dv, Isp, MPowR_model):
     OX_tank_shape = "sphere"
     F_tank_shape = "sphere" 
     P_tank_shape = "sphere"
-    
+    t2 = time.perf_counter()
     
     i = 0
-    tol = 0.01
+    # tol = 0.01  # now passed as argument
     er = 1
     
     lander = L("Test lander 1", mp, md_0, mprop_0, mt_0, dv, Isp)
@@ -324,67 +336,121 @@ def IAC_sizing_algorithm(mp, dv, Isp, MPowR_model):
     X_data = np.array([DBss["md"], DBss["mp"], DBss["mprop"], DBss["dV"], DBss["Isp"]]).transpose()
     y_data = np.array([DBss["Structure"], DBss["Propulsion"], DBss["Power"], DBss["Avionics"], DBss["Thermal Protection"], DBss["Other"]]).transpose()
     store = []
-    
+    t3 = time.perf_counter()
     acf = 0.01
-    STR_model = MPowR_model[0]
-    # print("STR_model", STR_model)
-    PRPL_model = MPowR_model[1]
-    # print("PRPL_model", PRPL_model)
-    POW_model = MPowR_model[2]
-    # # print("POW_model", PRPL_model)
-    AVIO_model = MPowR_model[3]
-    # # print("AVIO_model", AVIO_model)
-    THER_model = MPowR_model[4]
-    # # print("THER_model", THER_model)
-    OTH_model = MPowR_model[5]
-    # print("OTH_model", OTH_model)
+    # STR_model = MPowR_model[0]
+    # # print("STR_model", STR_model)
+    # PRPL_model = MPowR_model[1]
+    # # print("PRPL_model", PRPL_model)
+    # POW_model = MPowR_model[2]
+    # # # print("POW_model", PRPL_model)
+    # AVIO_model = MPowR_model[3]
+    # # # print("AVIO_model", PRPL_model)
+    # THER_model = MPowR_model[4]
+    # # # print("THER_model", THER_model)
+    # OTH_model = MPowR_model[5]
+    # # print("OTH_model", PRPL_model)
 
     
     while er > tol:
+        try:
+            new_input = np.array([lander.md, lander.mp, lander.mprop, lander.dv, lander.Isp])
+            
+            # ⚠️ models() might overflow
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", RuntimeWarning)  # treat overflow as exception
+                a, b, c, d, e, f = models(new_input)
+        
+            lander.STR    = a
+            lander.PRPLSN = b
+            lander.POW    = c
+            lander.AVIO   = d
+            lander.THER   = e
+            lander.OTH    = f
+            # 
+            md_i1 = sum([a, b, c, d, e, f])
+    
+            mprop_i1 = f2(mp, md_i1, dv, Isp)
+        
+            md_i.append(md_i1)
+            mprop_i.append(mprop_i1)
+            
+            lander.md = (float(md_i[-1:][0]))
+        
+            lander.mprop = float(mprop_i[-1:][0])
+            
+            lander.mt = float(np.array(md_i[-1:])) + float(np.array(mprop_i[-1:])) + float(np.array(mp))
+            
+            er = abs(1 - md_i1/md_i[i])
+            # acf = md_i[i]/(md_i1) #the last iter over this iter
+            # print("er:                       ", er)
+            # print("initial md guess:         ", md_0)
+            # print("md_i from the lase iter:  ", md_i[i])
+            # print("md from this iter:        ", md_i1)
+            # print("iter:                     ", i)
+            i=i+1
+            if i>max_iter:
+                print("divergence, i=", i)
+                return None   # ⬅️ signal divergence safely
+        
+        except (FloatingPointError, OverflowError, RuntimeWarning):
+            print("Numerical overflow / invalid prediction.")
+            return None   # ⬅️ bail out cleanly
+    
+    t4 = time.perf_counter()
+    # print(f"Point 1 : {t1 - start:.8e} sec")
+    # print(f"Point 2 : {t2 - t1:.8e} sec")
+    # print(f"Point 3 : {t3 - t2:.8e} sec")
+    # print(f"Point 4   {t4 - t3:.8e} sec")
 
-        
-        # new_input = np.array([[lander.mt, lander.mp, lander.mprop, lander.dv, lander.Isp]])
-        new_input = np.array([[lander.md, lander.mp, lander.mprop, lander.dv, lander.Isp]])
-        a = lander.STR = STR2(new_input)
-        # b=c=d=e=f=1
-        b = lander.PRPLSN =  PRPL_Ramos(new_input[0], new_input[2], new_input[1], FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape)
-        c = lander.POW = power_func(new_input, *POW_model)
-        d = lander.AVIO = power_func(new_input, *AVIO_model)
-        e = lander.THER = THER_phys(ap_req, D_m, heater, mt)
-        f = lander.OTH = power_func(new_input, *OTH_model)
-        
-        # print("STR", a,"PRPL",  b,"POW",  c,"AVIO",  d,"THER",  e,"OTH",  f)
-        # print("STR", a)
-        # 
-        md_i1 = sum([a, b, c, d, e, f])
-        # print("uncorrected md: ", sum([a, b, c, d, e, f]))
-        # print("corrected md  : ", sum([a, b, c, d, e, f])*acf)
-        mprop_i1 = f2(mp, md_i1, dv, Isp)
-        # print(i)
-        md_i.append(md_i1)
-        mprop_i.append(mprop_i1)
-        
-        lander.md = (float(md_i[-1:][0]))
+    return lander
+
+
+#%% Evalusation of the function
+def V_ers_2(data, pred, testname):
+    dat = [data.mt, data.md, data.mprop, data.mp, data.STR, data.PRPLSN, data.AVIO, data.POW, data.THER, data.OTH]
+    prd = [pred.mt, pred.md, pred.mprop, pred.mp, pred.STR, pred.PRPLSN, pred.AVIO, pred.POW, pred.THER, pred.OTH]
+    errors = []
+    for k in range(0, len(dat)): #error magnitude of each quantity wrt data in %
+        # print("here", len(prd[k]))
+        erm = np.round(float((prd[k] - dat[k])/(dat[k])), 4)*100        
+        errors.append(erm)
+    ers_dic = {"mt:      ":errors[0],
+                "md:      ":errors[1],
+                "mprop:   ":errors[2],
+                "mp:      ":errors[3],
+                "STR:     ":errors[4],
+                "PRPL:    ":errors[5],
+                "AVIO:    ":errors[6],
+                "POW:     ":errors[7],
+                "THER:   ":errors[8],
+                "OTH:     ":errors[9]}
+    # print(ers_dic["mp:      "])
+
+    return np.array(errors), ers_dic
+
+def EVAL(Algo_under_test, DB, models): 
+    glob_ers = np.zeros([10,len(DB["mt"])]) #ten parameters for each DB entry
+    glob_ers_means = np.zeros(10) #means of the ten params
+    prediction_values = np.zeros([len(DB["mt"]),10])
+    for i in range(0, len(DB["mt"])):
+        data = DB_2_class(DB, i)
+        mp = float(DB["mp"][i])
+        dv = float(DB["dV"][i])
+        Isp = float(DB["Isp"][i]) 
+
+        pred = Algo_under_test(mp, dv, Isp, models)
+            
+        # print("md and mprop:", float(np.array(pred.md)), pred.mprop)
+        prediction_values[i, :] = np.array([pred.mt, float(np.array(pred.md)), float(np.array(pred.mprop)), pred.mp, float(pred.STR), float(pred.PRPLSN), float(pred.AVIO), float(pred.POW), float(pred.THER), float(pred.OTH)])
+        ers_i, dump = V_ers_2(data, pred, "ith error")
+        # print("ers_i, mp", ers_i[3])
+        glob_ers[:,i] = ers_i
+        # print(glob_ers[:,0])
+    for i in range(0, 10):# for the ten mass-properties
+        # glob_ers_means[i] = np.mean(glob_ers[:,i])
+        # glob_ers_means[i] = np.median(glob_ers[:,i])
+        # glob_ers_means[i] = np.median(np.sqrt(glob_ers[:,i]**2))
+        glob_ers_means[i] = np.median(abs(glob_ers[i,:]))
     
-        lander.mprop = float(mprop_i[-1:][0])
-        
-        lander.mt = float(np.array(md_i[-1:])) + float(np.array(mprop_i[-1:])) + float(np.array(mp))
-        
-        er = abs(1 - md_i1/md_i[i])
-        # acf = md_i[i]/(md_i1) #the last iter over this iter
-        
-        # print("acf:                      ", acf)
-        print("er:                       ", er)
-        print("initial md guess:         ", md_0)
-        print("md_i from the lase iter:  ", md_i[i])
-        print("md from this iter:        ", md_i1)
-        # # print("STR:                      ", a)
-        # # store.append(a)
-        print("iter:                     ", i)
-        i=i+1
-        if i>50:
-            print("divergence, i=", i)
-            break    
-    
-    return lander    
-    
+    return glob_ers_means, prediction_values

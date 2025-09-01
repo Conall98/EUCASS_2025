@@ -14,5 +14,11 @@ from IAC25_outils import *
 mp = 2000
 dv = 2500
 Isp = 350
+# lander = IAC_sizing_algorithm(mp, dv, Isp, linear_estimations)
+lander = IAC_sizing_algorithm(mp, dv, Isp, polynoial_estimations)
 
-lander = IAC_sizing_algorithm(mp, dv, Isp, MPow_ss_models)
+#%% Testing
+# X = np.array([1, 2, 3, 4, 5])
+# STR_MLR(X)
+
+mean_errors, repredictions = EVAL(IAC_sizing_algorithm, DB_ss)
