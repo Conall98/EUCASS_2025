@@ -59,7 +59,7 @@ class Tank():
         self.volume = volume
         
 class L:
-    def __init__(self, name, mp, md, mprop, mt, dv=None, isp=None, STR = None, PRPLSN = None, POW = None, AVIO = None, THER = None, OTH = None):
+    def __init__(self, name, mp, md, mprop, mt, dv=None, isp=None, STR = None, PRPLSN = None, POW = None, AVIO = None, THER = None, OTH = None, initial_md_guess=None):
         self.name = name
         self.mp = np.round(mp, 2)
         self.md = np.round(md, 2)
@@ -73,6 +73,7 @@ class L:
         self.AVIO = AVIO
         self.THER = THER
         self.OTH = OTH
+        self.initial_md_guess = initial_md_guess
         
     def test(self):
         mp = self.mp
@@ -239,7 +240,7 @@ def MPR(X, y, degree=2):
     X_poly = poly.fit_transform(X)
 
     # Set up regression model
-    model = linear_model.LinearRegression(fit_intercept=False, positive=False)
+    model = linear_model.LinearRegression(fit_intercept=False, positive=True)
     model.fit(X_poly, y)  # Fits all outputs at once
 
     # Predict the first sample manually to compare

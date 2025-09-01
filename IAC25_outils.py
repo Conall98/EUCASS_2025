@@ -79,8 +79,8 @@ def STR_MPR(X):
     return np.dot(coefs, X_poly) + intercept
 
 def STR_MPowR(X):
-    str_model = MPowR_model[0]
-    return power_func(new_input, *str_model)
+    str_model = MPow_ss_models[0]
+    return power_func(X, *str_model)
 
 ### PROPULSION ####
 def PRPL_MLR(X):
@@ -98,8 +98,8 @@ def PRPL_MPR(X):
     return np.dot(coefs, X_poly) + intercept
 
 def PRPL_MPowR(X):
-    model = MPowR_model[1]
-    return power_func(new_input, *model)
+    model = MPow_ss_models[1]
+    return power_func(X, *model)
 
 def PRPL_Ramos(md, mprop, mp, FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape): #FT = Fuel type (class), T is Thrust WEIGHT Requirement, MR is O/F mixture ratio
     m_prpl, m_tanks, m_engines = tn.PRPL(md, mprop, mp, FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape)
@@ -121,8 +121,8 @@ def POW_MPR(X):
     return np.dot(coefs, X_poly) + intercept
 
 def POW_MPowR(X):
-    model = MPowR_model[2]
-    return power_func(new_input, *model)
+    model = MPow_ss_models[2]
+    return power_func(X, *model)
 
 def POW_SSR_battery(peak_power, average_power, mission_duration): 
     p_req = peak_power #W
@@ -154,8 +154,8 @@ def AVIO_MPR(X):
     return np.dot(coefs, X_poly) + intercept
 
 def AVIO_MPowR(X):
-    model = MPowR_model[3]
-    return power_func(new_input, *model)
+    model = MPow_ss_models[3]
+    return power_func(X, *model)
 
 ### THERMAL ####
 def THER_MLR(X):
@@ -173,8 +173,8 @@ def THER_MPR(X):
     return np.dot(coefs, X_poly) + intercept
 
 def THER_MPowR(X):
-    model = MPowR_model[4]
-    return power_func(new_input, *model)
+    model = MPow_ss_models[4]
+    return power_func(X, *model)
 
 def THER_phys(ap_req, D_m, heater, mt):
     #p_req is the max power requirement
@@ -265,9 +265,9 @@ def OTH_MPR(X):
     return np.dot(coefs, X_poly) + intercept
 
 def OTH_MPowR(X):
-    model = MPowR_model[5]
-    return power_func(new_input, *model)
-
+    model = MPow_ss_models[5]
+    return power_func(X, *model)
+#%% model combinations
 def linear_estimations(X):
     a = STR_MLR(X)
     b = PRPL_MLR(X)
@@ -277,7 +277,7 @@ def linear_estimations(X):
     f = OTH_MLR(X)
     return a, b, c, d, e, f
 
-def polynoial_estimations(X):
+def polynomial_estimations(X):
     a = STR_MPR(X)
     b = PRPL_MPR(X)
     c = POW_MPR(X)
@@ -295,6 +295,35 @@ def powerlaw_estimations(X):
     f = OTH_MPowR(X)
     return a, b, c, d, e, f
 
+def mixed_estimation(X):
+    ## PRPL extra params ###
+    FT = F1 #N2O4-Aerozine   
+    TWR = 1.73 #same as Apollo
+    tank_material = M1
+    n = 4 #number of engines
+    Pressure = 20 #bars
+    OX_tank_shape = "sphere"
+    F_tank_shape = "sphere" 
+    P_tank_shape = "sphere"
+    
+    ## Power extra params ##
+    peak_power = 2000
+    average_power = 50
+    mission_duration = 10
+    heater = "non-nuclear"
+    
+    a = STR_MLR(X)
+    # b = PRPL_Ramos(X[0], X[2], X[1], FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape)
+    b = PRPL_MLR(X)
+    # c = POW_SSR_battery(peak_power, average_power, mission_duration) +0.02*X[0]
+    # c = POW_MLR(X)
+    c = POW_MPR(X)
+    d = AVIO_MLR(X)
+    # e = THER_phys(average_power, mission_duration, heater, (X[0] + X[1] + X[2]))
+    e = THER_MLR(X)
+    f = OTH_MLR(X)
+    
+    return a, b, c, d, e, f
 #%% The sizing Algorithm
 
 def IAC_sizing_algorithm(mp, dv, Isp, models, max_iter=50, tol=0.01):
@@ -317,14 +346,7 @@ def IAC_sizing_algorithm(mp, dv, Isp, models, max_iter=50, tol=0.01):
     md_i = [md_0]
     mprop_i = [mprop_0]
     
-    FT = F1 #N2O4-Aerozine   
-    TWR = 1.73 #same as Apollo
-    tank_material = M1
-    n = 4 #number of engines
-    Pressure = 20 #bars
-    OX_tank_shape = "sphere"
-    F_tank_shape = "sphere" 
-    P_tank_shape = "sphere"
+
     t2 = time.perf_counter()
     
     i = 0
@@ -337,21 +359,9 @@ def IAC_sizing_algorithm(mp, dv, Isp, models, max_iter=50, tol=0.01):
     y_data = np.array([DBss["Structure"], DBss["Propulsion"], DBss["Power"], DBss["Avionics"], DBss["Thermal Protection"], DBss["Other"]]).transpose()
     store = []
     t3 = time.perf_counter()
-    acf = 0.01
-    # STR_model = MPowR_model[0]
-    # # print("STR_model", STR_model)
-    # PRPL_model = MPowR_model[1]
-    # # print("PRPL_model", PRPL_model)
-    # POW_model = MPowR_model[2]
-    # # # print("POW_model", PRPL_model)
-    # AVIO_model = MPowR_model[3]
-    # # # print("AVIO_model", PRPL_model)
-    # THER_model = MPowR_model[4]
-    # # # print("THER_model", THER_model)
-    # OTH_model = MPowR_model[5]
-    # # print("OTH_model", PRPL_model)
+    # acf = 0.01
 
-    
+    # lander.initial_md_guess =  md_0 
     while er > tol:
         try:
             new_input = np.array([lander.md, lander.mp, lander.mprop, lander.dv, lander.Isp])
@@ -375,7 +385,9 @@ def IAC_sizing_algorithm(mp, dv, Isp, models, max_iter=50, tol=0.01):
             md_i.append(md_i1)
             mprop_i.append(mprop_i1)
             
-            lander.md = (float(md_i[-1:][0]))
+            lander.md = (float(md_i[-1:][0])) #the [0] makes sure it is a float not a 1x1 array
+            # print("md_i[-1:]", md_i[-1:][0])
+            
         
             lander.mprop = float(mprop_i[-1:][0])
             
@@ -389,6 +401,7 @@ def IAC_sizing_algorithm(mp, dv, Isp, models, max_iter=50, tol=0.01):
             # print("md from this iter:        ", md_i1)
             # print("iter:                     ", i)
             i=i+1
+            # print(i)
             if i>max_iter:
                 print("divergence, i=", i)
                 return None   # ⬅️ signal divergence safely
@@ -429,28 +442,380 @@ def V_ers_2(data, pred, testname):
 
     return np.array(errors), ers_dic
 
-def EVAL(Algo_under_test, DB, models): 
-    glob_ers = np.zeros([10,len(DB["mt"])]) #ten parameters for each DB entry
-    glob_ers_means = np.zeros(10) #means of the ten params
-    prediction_values = np.zeros([len(DB["mt"]),10])
-    for i in range(0, len(DB["mt"])):
+import numpy as np
+
+def EVAL(Algo_under_test, DB, models, verbose=True): 
+    """
+    Evaluate an algorithm over a database DB, skipping invalid landers.
+    
+    Parameters
+    ----------
+    Algo_under_test : function
+        Function returning a lander object.
+    DB : dict
+        Database of input parameters.
+    models : object
+        Model input for the algorithm.
+    verbose : bool
+        If True, print skipped indices.
+        
+    Returns
+    -------
+    glob_ers_means : np.ndarray
+        Median of the errors for each of the 10 parameters.
+    prediction_values : np.ndarray
+        Array of lander properties (valid predictions only).
+    skipped_indices : list
+        List of DB indices that were skipped due to errors.
+    """
+    
+    glob_ers_list = []           # store valid errors
+    prediction_values_list = []  # store valid predictions
+    skipped_indices = []         # store indices of failed landers
+
+    for i in range(len(DB["mt"])):
         data = DB_2_class(DB, i)
         mp = float(DB["mp"][i])
         dv = float(DB["dV"][i])
-        Isp = float(DB["Isp"][i]) 
+        Isp = float(DB["Isp"][i])
 
-        pred = Algo_under_test(mp, dv, Isp, models)
+        try:
+            pred = Algo_under_test(mp, dv, Isp, models)
             
-        # print("md and mprop:", float(np.array(pred.md)), pred.mprop)
-        prediction_values[i, :] = np.array([pred.mt, float(np.array(pred.md)), float(np.array(pred.mprop)), pred.mp, float(pred.STR), float(pred.PRPLSN), float(pred.AVIO), float(pred.POW), float(pred.THER), float(pred.OTH)])
-        ers_i, dump = V_ers_2(data, pred, "ith error")
-        # print("ers_i, mp", ers_i[3])
-        glob_ers[:,i] = ers_i
-        # print(glob_ers[:,0])
-    for i in range(0, 10):# for the ten mass-properties
-        # glob_ers_means[i] = np.mean(glob_ers[:,i])
-        # glob_ers_means[i] = np.median(glob_ers[:,i])
-        # glob_ers_means[i] = np.median(np.sqrt(glob_ers[:,i]**2))
-        glob_ers_means[i] = np.median(abs(glob_ers[i,:]))
+            # Skip if pred is None
+            if pred is None:
+                skipped_indices.append(i)
+                continue
+            
+            # Collect prediction values
+            pred_row = np.array([
+                pred.mt,
+                float(np.array(pred.md)),
+                float(np.array(pred.mprop)),
+                pred.mp,
+                float(pred.STR),
+                float(pred.PRPLSN),
+                float(pred.AVIO),
+                float(pred.POW),
+                float(pred.THER),
+                float(pred.OTH)
+            ])
+            prediction_values_list.append(pred_row)
+
+            # Compute errors
+            ers_i, _ = V_ers_2(data, pred, "ith error")
+            glob_ers_list.append(ers_i)
+
+        except AttributeError:
+            skipped_indices.append(i)
+            continue
+
+    # Convert lists to arrays
+    if len(prediction_values_list) == 0:
+        prediction_values = np.zeros((0,10))
+        glob_ers = np.zeros((10,0))
+    else:
+        prediction_values = np.vstack(prediction_values_list)
+        glob_ers = np.array(glob_ers_list).T  # shape (10, n_valid)
+
+    # Compute median error for each parameter
+    glob_ers_means = np.median(np.abs(glob_ers), axis=1) if glob_ers.size > 0 else np.zeros(10)
+
+    if verbose and skipped_indices:
+        print(f"Skipped {len(skipped_indices)} landers at indices: {skipped_indices}")
+
+    return glob_ers_means, prediction_values, skipped_indices
+
+#%%
+def monte_carlo_IAC(n, mp_samples, dv_samples, isp_samples, Algorithm, model):
+    results = []
+    for i in range(n):
+        lander = Algorithm(mp_samples[i],
+                           dv_samples[i],
+                           isp_samples[i],
+                           model)
+        results.append(lander)
+
+    # Collect attributes (ignore "name")
+    attrs = [a for a in results[0].__dict__.keys() if a != "name"]
+
+    collected = {}
+    for attr in attrs:
+        values = np.array([getattr(r, attr) for r in results])
+        # Map constructor keyword if needed
+        key = {"Isp": "isp"}.get(attr, attr)
+        collected[key] = values
+
+    return L(results[0].name, **collected)
+
+def plot_lander_histograms(lander, bins=30):
+    """
+    Plot histograms of all array-valued properties of an L object
+    as subplots in a single window. Ensures mp, dv, and Isp are first.
     
-    return glob_ers_means, prediction_values
+    Parameters
+    ----------
+    lander : L
+        The L object containing Monte Carlo arrays.
+    bins : int
+        Number of histogram bins.
+    """
+    # Collect all array-valued attributes, excluding name and initial_md_guess
+    all_attrs = [
+        a for a, v in lander.__dict__.items()
+        if a not in ("name", "initial_md_guess") and isinstance(v, np.ndarray) and v.size > 1
+    ]
+    
+    # Put mp, dv, Isp first if they exist
+    priority = ["mp", "dv", "Isp"]
+    attrs = [a for a in priority if a in all_attrs] + [a for a in all_attrs if a not in priority]
+    
+    n_attrs = len(attrs)
+    if n_attrs == 0:
+        print("No array-valued properties to plot.")
+        return
+    
+    # Compute grid size (square-ish layout)
+    ncols = m.ceil(m.sqrt(n_attrs))
+    nrows = m.ceil(n_attrs / ncols)
+    
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows))
+    axes = np.atleast_1d(axes).ravel()
+    
+    for i, attr in enumerate(attrs):
+        values = getattr(lander, attr)
+        axes[i].hist(values, bins=bins, alpha=0.7, edgecolor="black")
+        axes[i].set_title(f"{attr} ({lander.name})")
+        axes[i].set_xlabel(attr)
+        axes[i].set_ylabel("Frequency")
+        axes[i].grid(True, linestyle="--", alpha=0.5)
+    
+    # Hide unused subplots if grid > needed
+    for j in range(i+1, len(axes)):
+        axes[j].axis("off")
+    
+    plt.tight_layout()
+    plt.show()
+
+
+#%%
+def plot_lander_scurves_with_percentiles(lander):
+    """
+    Plot cumulative S-curves (CDFs) of all array-valued properties of an L object
+    as subplots in a single window. Ensures mp, dv, and Isp are first.
+    Marks 5th, 50th, and 95th percentiles on each curve.
+    
+    Parameters
+    ----------
+    lander : L
+        The L object containing Monte Carlo arrays.
+    """
+    # Collect all array-valued attributes, excluding name and initial_md_guess
+    all_attrs = [
+        a for a, v in lander.__dict__.items()
+        if a not in ("name", "initial_md_guess") and isinstance(v, np.ndarray) and v.size > 1
+    ]
+    
+    # Put mp, dv, Isp first if they exist
+    priority = ["mp", "dv", "Isp"]
+    attrs = [a for a in priority if a in all_attrs] + [a for a in all_attrs if a not in priority]
+    
+    n_attrs = len(attrs)
+    if n_attrs == 0:
+        print("No array-valued properties to plot.")
+        return
+    
+    # Compute grid size (square-ish layout)
+    ncols = m.ceil(m.sqrt(n_attrs))
+    nrows = m.ceil(n_attrs / ncols)
+    
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows))
+    axes = np.atleast_1d(axes).ravel()
+    
+    for i, attr in enumerate(attrs):
+        values = getattr(lander, attr)
+        sorted_vals = np.sort(values)
+        cdf = np.arange(1, len(sorted_vals)+1) / len(sorted_vals)
+        
+        axes[i].plot(sorted_vals, cdf, color='blue', label='CDF')
+        
+        # Compute percentiles
+        p5, p50, p95 = np.percentile(values, [5,50,95])
+        axes[i].axvline(p5, color='red', linestyle='--', label='5th percentile')
+        axes[i].axvline(p50, color='green', linestyle='--', label='50th percentile (median)')
+        axes[i].axvline(p95, color='orange', linestyle='--', label='95th percentile')
+        
+        axes[i].set_title(f"{attr} ({lander.name})")
+        axes[i].set_xlabel(attr)
+        axes[i].set_ylabel("Cumulative Probability")
+        axes[i].grid(True, linestyle="--", alpha=0.5)
+        axes[i].set_ylim([0,1])
+        axes[i].legend()
+    
+    # Hide unused subplots if grid > needed
+    for j in range(i+1, len(axes)):
+        axes[j].axis("off")
+    
+    plt.tight_layout()
+    plt.show()
+
+
+#%% ####### DEBUGGING #############
+
+def diagnose_gaps(lander_mc, mp_samples, dv_samples, isp_samples, prop="md", bins=50):
+    """
+    Diagnose gaps in a Monte Carlo output property.
+
+    Parameters
+    ----------
+    lander_mc : L
+        Lander object with Monte Carlo arrays (e.g., md, mt, mp, etc.).
+    mp_samples, dv_samples, isp_samples : array-like
+        Input samples used in the Monte Carlo simulation.
+    prop : str
+        The property to analyze (e.g., "md", "mt", "mp").
+    bins : int
+        Number of bins for histogram to detect gaps.
+    """
+    values = getattr(lander_mc, prop)
+    
+    # 1. Histogram to show gaps
+    plt.figure(figsize=(8,4))
+    counts, edges, _ = plt.hist(values, bins=bins, alpha=0.7, edgecolor="black")
+    plt.title(f"Histogram of {prop}")
+    plt.xlabel(prop)
+    plt.ylabel("Frequency")
+    plt.grid(True, linestyle="--", alpha=0.5)
+    plt.show()
+    
+    # 2. Identify empty bins#
+    empty_bins = np.where(counts == 0)[0]
+    if len(empty_bins) == 0:
+        print(f"No gaps detected in {prop}.")
+    else:
+        print(f"Gaps detected in {prop} at bin ranges:")
+        for idx in empty_bins:
+            print(f"{edges[idx]:.2f} to {edges[idx+1]:.2f}")
+    
+    # 3. Scatter plots of inputs vs prop
+    fig, axes = plt.subplots(1,3, figsize=(18,5))
+    
+    axes[0].scatter(mp_samples, values, s=5, alpha=0.5)
+    axes[0].set_xlabel("mp")
+    axes[0].set_ylabel(prop)
+    axes[0].set_title(f"{prop} vs mp")
+    
+    axes[1].scatter(dv_samples, values, s=5, alpha=0.5)
+    axes[1].set_xlabel("dv")
+    axes[1].set_ylabel(prop)
+    axes[1].set_title(f"{prop} vs dv")
+    
+    axes[2].scatter(isp_samples, values, s=5, alpha=0.5)
+    axes[2].set_xlabel("Isp")
+    axes[2].set_ylabel(prop)
+    axes[2].set_title(f"{prop} vs Isp")
+    
+    plt.tight_layout()
+    plt.show()
+#%%
+
+def diagnose_gaps_with_initial_guess_highlight(lander_mc, mp_samples, dv_samples, isp_samples, prop="md", bins=50):
+    """
+    Diagnose gaps in a Monte Carlo output property, highlight them in scatter plots,
+    show initial_md_guess points, and mark guesses that fall in the gaps.
+    
+    Parameters
+    ----------
+    lander_mc : L
+        Lander object with Monte Carlo arrays (e.g., md, mt, mp, etc.).
+    mp_samples, dv_samples, isp_samples : array-like
+        Input samples used in the Monte Carlo simulation.
+    prop : str
+        The property to analyze (e.g., "md", "mt", "mp").
+    bins : int
+        Number of bins for histogram to detect gaps.
+    
+    Returns
+    -------
+    gap_table : pd.DataFrame
+        Table of input combinations closest to the gaps.
+    """
+    values = getattr(lander_mc, prop)
+    
+    # 1. Histogram
+    plt.figure(figsize=(8,4))
+    counts, edges, _ = plt.hist(values, bins=bins, alpha=0.7, edgecolor="black")
+    plt.title(f"Histogram of {prop}")
+    plt.xlabel(prop)
+    plt.ylabel("Frequency")
+    plt.grid(True, linestyle="--", alpha=0.5)
+    plt.show()
+    
+    # 2. Identify empty bins
+    empty_bins = np.where(counts == 0)[0]
+    if len(empty_bins) == 0:
+        print(f"No gaps detected in {prop}.")
+        return None
+    else:
+        print(f"Gaps detected in {prop} at bin ranges:")
+        gap_ranges = []
+        for idx in empty_bins:
+            r = (edges[idx], edges[idx+1])
+            gap_ranges.append(r)
+            print(f"{r[0]:.2f} to {r[1]:.2f}")
+    
+    # 3. Scatter plots of inputs vs property
+    fig, axes = plt.subplots(1,3, figsize=(18,5))
+    inputs = [mp_samples, dv_samples, isp_samples]
+    input_names = ["mp", "dv", "Isp"]
+    
+    gap_rows = []
+    
+    for ax, x, name in zip(axes, inputs, input_names):
+        # Normal points
+        ax.scatter(x, values, s=5, alpha=0.5, color='blue', label='Normal points')
+        
+        # Gap points in red
+        for low, high in gap_ranges:
+            mask = (values >= low) & (values <= high)
+            if np.any(mask):
+                ax.scatter(x[mask], values[mask], color="red", s=20, alpha=0.8, label="Gap points")
+                gap_rows.extend(zip(x[mask], dv_samples[mask], isp_samples[mask], values[mask]))
+        
+        # initial_md_guess points
+        if hasattr(lander_mc, "initial_md_guess") and lander_mc.initial_md_guess is not None:
+            guess_values = lander_mc.initial_md_guess
+            # Mask guesses inside gaps
+            in_gap_mask = np.zeros_like(guess_values, dtype=bool)
+            for low, high in gap_ranges:
+                in_gap_mask |= (guess_values >= low) & (guess_values <= high)
+            
+            # Plot guesses outside gaps in yellow
+            ax.scatter(x[~in_gap_mask], guess_values[~in_gap_mask], color="yellow", s=20, alpha=0.7, label="Initial md guess")
+            # Plot guesses inside gaps in black stars
+            if np.any(in_gap_mask):
+                ax.scatter(x[in_gap_mask], guess_values[in_gap_mask], color="black", marker="*", s=50, label="Guess in gap")
+        
+        ax.set_xlabel(name)
+        ax.set_ylabel(prop)
+        ax.set_title(f"{prop} vs {name}")
+        ax.grid(True, linestyle="--", alpha=0.5)
+        
+        # Avoid duplicate legend entries
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        ax.legend(by_label.values(), by_label.keys())
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # 4. Create table of gap rows
+    if gap_rows:
+        gap_table = pd.DataFrame(gap_rows, columns=["mp", "dv", "Isp", prop])
+        print(f"\nInput combinations near the gaps ({len(gap_rows)} rows):")
+        display(gap_table)
+        return gap_table
+    else:
+        print("No points fall exactly in the empty bins; gaps are truly unpopulated.")
+        return None
+
