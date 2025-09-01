@@ -22,14 +22,26 @@ model = mixed_estimation
 lander = IAC_sizing_algorithm(mp, dv, Isp, model)
 
 
+#%% Monte-Carlo Class 1 uncertainties
+n = 1000
+mp_samples = np.random.normal(2000, 0, n)      # Monte Carlo for mp
+dv_samples = np.random.normal(2500, 250, n)   # Monte Carlo for dv
+isp_samples = np.random.normal(350, 5, n)    # Monte Carlo for Isp
+
+lander_mc = monte_carlo_IAC(n, mp_samples, dv_samples, isp_samples, IAC_sizing_algorithm, model)
+
+
+#%%
+plot_lander_histograms(lander_mc, bins=40)
+plot_lander_scurves_with_percentiles(lander_mc)
+
+
 #%% Testing
 # X = np.array([1, 2, 3, 4, 5])
 # STR_MLR(X)
 
 mean_errors, repredictions, skipped_indices = EVAL(IAC_sizing_algorithm, DB_ss, model)
 
-
-#%%
 # List of models to evaluate
 models = [
     ("linear", linear_estimations),
@@ -58,18 +70,16 @@ print("Summary of skipped indices:", skipped_summary)
 
 
 
-#%% Monte-Carlo Class 1 uncertainties
-n = 1000
-mp_samples = np.random.normal(2000, 0, n)      # Monte Carlo for mp
-dv_samples = np.random.normal(2500, 25, n)   # Monte Carlo for dv
-isp_samples = np.random.normal(350, 5, n)    # Monte Carlo for Isp
 
-lander_mc = monte_carlo_IAC(n, mp_samples, dv_samples, isp_samples, IAC_sizing_algorithm, model)
 
-print(lander_mc.mp[:5])   # first 5 Monte Carlo mp values
-print(lander_mc.dv[:5])   # first 5 Monte Carlo dv values
-print(lander_mc.Isp[:5])  # first 5 Monte Carlo isp values
 
-#%%
-# plot_lander_histograms(lander_mc, bins=40)
-plot_lander_scurves_with_percentiles(lander_mc)
+
+
+
+
+
+
+
+
+
+

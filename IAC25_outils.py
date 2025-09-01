@@ -56,6 +56,10 @@ def R_squared_Pow(features, model, target):
 def f1(mp):
     return 367.29*np.log(mp) - 904.17
 
+def f1_unc(mp):
+    return np.random.normal(144.27*(mp**0.3278), 0.0116*mp+63.38)
+    # return np.random.normal(144.27*(mp**0.3278), 300)
+
 def f2(mp, md, dv, Isp):# gives mprop with mp+md
     return 1.16*(mp+md)*(np.exp(dv/(Isp*9.81)) - 1)
 
@@ -334,7 +338,8 @@ def IAC_sizing_algorithm(mp, dv, Isp, models, max_iter=50, tol=0.01):
     """
     
     DBss = DB_ss
-    md_0 = f1(mp)
+    # md_0 = f1(mp)
+    md_0 = f1_unc(mp)
     t1 = time.perf_counter()
     
     # print("md_0 in routuine_Ramos_Cryo: ", md_0)
@@ -658,6 +663,23 @@ def plot_lander_scurves_with_percentiles(lander):
     
     plt.tight_layout()
     plt.show()
+
+#%%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #%% ####### DEBUGGING #############
