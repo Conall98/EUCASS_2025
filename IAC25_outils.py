@@ -74,6 +74,46 @@ def STR_MLR(X):
     intercept = str_model[5]
     return np.dot(coefs, X) + intercept
 
+def STR_MLR_unc(X, max_sigma=0.2, lower_factor=0.1):
+    """
+    Positive predictions with multiplicative log-normal noise for a single input vector,
+    truncated smoothly at ~3 sigma above the base prediction.
+    """
+    # Get model coefficients
+    str_model = linear_ss_models[0, :]
+    coefs = np.array(str_model[0:5])
+    intercept = str_model[5]
+    r2 = str_model[6]
+
+    # Ensure X is 1D
+    X = np.atleast_1d(X)
+
+    # Base prediction
+    y_base = X @ coefs + intercept
+
+    # Residual standard deviation
+    std_resid = residual_std_from_r2(r2, DB_ss["Structure"])
+
+    # Global sigma in log-space, capped
+    eps = 1e-12
+    sigma_global = min(std_resid / max(np.mean([y_base]), eps), max_sigma)
+    mu_global = -0.5 * sigma_global**2
+
+    # Truncate multiplicative factor at 3 sigma above base
+    upper_factor = np.exp(3 * sigma_global)
+
+    # Standardized truncation bounds for truncnorm
+    a, b = (np.log(lower_factor) - mu_global) / sigma_global, \
+           (np.log(upper_factor) - mu_global) / sigma_global
+
+    # Sample multiplicative factor from truncated log-normal
+    z = truncnorm.rvs(a, b, loc=mu_global, scale=sigma_global, size=1)
+
+    # Apply multiplicative noise
+    y_out = y_base * np.exp(z[0])
+
+    return float(y_out)
+
 def STR_MPR(X):
     str_model = MPoly_ss_models[0, :]
     coefs = str_model[0:20]
@@ -92,7 +132,31 @@ def PRPL_MLR(X):
     coefs = model[0:5]
     intercept = model[5]
     return np.dot(coefs, X) + intercept
+#%%
+def PRPL_MLR_unc(X, max_sigma=0.2, lower_factor=0.1):
+    model = linear_ss_models[1, :]
+    coefs = model[0:5]
+    intercept = model[5]
+    r2 = model[6]
 
+    X = np.atleast_1d(X)
+    y_base = np.dot(coefs, X) + intercept
+    std_resid = residual_std_from_r2(r2, DB_ss["Propulsion"])
+
+    eps = 1e-12
+    sigma_global = min(std_resid / max(np.mean([y_base]), eps), max_sigma)
+    mu_global = -0.5 * sigma_global**2
+
+    upper_factor = np.exp(3 * sigma_global)
+
+    a, b = (np.log(lower_factor) - mu_global) / sigma_global, \
+           (np.log(upper_factor) - mu_global) / sigma_global
+
+    z = truncnorm.rvs(a, b, loc=mu_global, scale=sigma_global, size=1)
+    y_out = y_base * np.exp(z[0])
+
+    return float(y_out)
+#%%
 def PRPL_MPR(X):
     model = MPoly_ss_models[1, :]
     coefs = model[0:20]
@@ -124,6 +188,38 @@ def POW_MPR(X):
     X_poly = poly.fit_transform(X.reshape(1, -1)).ravel()    
     return np.dot(coefs, X_poly) + intercept
 
+#%%
+def POW_MPR_unc(X, degree=2, max_sigma=0.2, lower_factor=0.1):
+    """
+    Positive predictions with multiplicative log-normal noise for a polynomial model,
+    truncated smoothly at ~3 sigma above the base prediction.
+    """
+    model = MPoly_ss_models[2, :]
+    coefs = model[0:20]
+    intercept = model[20]
+    r2 = model[21]
+
+    X = np.atleast_1d(X)
+    poly = PolynomialFeatures(degree=degree, include_bias=False)
+    X_poly = poly.fit_transform(X.reshape(1, -1)).ravel()[:len(coefs)]
+
+    y_base = np.dot(coefs, X_poly) + intercept
+    std_resid = residual_std_from_r2(r2, DB_ss["Power"])
+
+    eps = 1e-12
+    sigma_global = min(std_resid / max(np.mean([y_base]), eps), max_sigma)
+    mu_global = -0.5 * sigma_global**2
+
+    upper_factor = np.exp(3 * sigma_global)
+
+    a, b = (np.log(lower_factor) - mu_global) / sigma_global, \
+           (np.log(upper_factor) - mu_global) / sigma_global
+
+    z = truncnorm.rvs(a, b, loc=mu_global, scale=sigma_global, size=1)
+    y_out = y_base * np.exp(z[0])
+
+    return float(y_out)
+#%%
 def POW_MPowR(X):
     model = MPow_ss_models[2]
     return power_func(X, *model)
@@ -148,7 +244,32 @@ def AVIO_MLR(X):
     coefs = model[0:5]
     intercept = model[5]
     return np.dot(coefs, X) + intercept
+#%%
+def AVIO_MLR_unc(X, max_sigma=0.2, lower_factor=0.1):
+    model = linear_ss_models[3, :]
+    coefs = model[0:5]
+    intercept = model[5]
+    r2 = model[6]
 
+    X = np.atleast_1d(X)
+    y_base = np.dot(coefs, X) + intercept
+    std_resid = residual_std_from_r2(r2, DB_ss["Avionics"])
+
+    eps = 1e-12
+    sigma_global = min(std_resid / max(np.mean([y_base]), eps), max_sigma)
+    mu_global = -0.5 * sigma_global**2
+
+    upper_factor = np.exp(3 * sigma_global)
+
+    a, b = (np.log(lower_factor) - mu_global) / sigma_global, \
+           (np.log(upper_factor) - mu_global) / sigma_global
+
+    z = truncnorm.rvs(a, b, loc=mu_global, scale=sigma_global, size=1)
+    y_out = y_base * np.exp(z[0])
+
+    return float(y_out)
+
+#%%
 def AVIO_MPR(X):
     model = MPoly_ss_models[3, :]
     coefs = model[0:20]
@@ -175,7 +296,47 @@ def THER_MPR(X):
     poly = PolynomialFeatures(degree=degree, include_bias=False)
     X_poly = poly.fit_transform(X.reshape(1, -1)).ravel()    
     return np.dot(coefs, X_poly) + intercept
+#%%
+def THER_MLR_unc(X, max_sigma=0.2, lower_factor=0.1):
+    """
+    Positive predictions with multiplicative log-normal noise for a single input vector,
+    truncated smoothly at ~3 sigma above the base prediction.
+    """
+    # Get model coefficients
+    model = linear_ss_models[4, :]
+    coefs = model[0:5]
+    intercept = model[5]
+    r2 = model[6]  # coefficient of determination
 
+    # Ensure X is a 1D vector
+    X = np.atleast_1d(X)
+
+    # Base prediction
+    y_base = np.dot(coefs, X) + intercept
+
+    # Residual standard deviation
+    std_resid = residual_std_from_r2(r2, DB_ss["Thermal Protection"])  # adjust column as needed
+
+    # Global sigma in log-space, capped
+    eps = 1e-12
+    sigma_global = min(std_resid / max(np.mean([y_base]), eps), max_sigma)
+    mu_global = -0.5 * sigma_global**2
+
+    # Truncate multiplicative factor at 3 sigma above base
+    upper_factor = np.exp(3 * sigma_global)
+
+    # Standardized truncation bounds for truncnorm
+    a, b = (np.log(lower_factor) - mu_global) / sigma_global, \
+           (np.log(upper_factor) - mu_global) / sigma_global
+
+    # Sample multiplicative factor from truncated log-normal
+    z = truncnorm.rvs(a, b, loc=mu_global, scale=sigma_global, size=1)
+
+    # Apply multiplicative noise
+    y_out = y_base * np.exp(z[0])
+
+    return float(y_out)
+#%%
 def THER_MPowR(X):
     model = MPow_ss_models[4]
     return power_func(X, *model)
@@ -259,7 +420,47 @@ def OTH_MLR(X):
     coefs = model[0:5]
     intercept = model[5]
     return np.dot(coefs, X) + intercept
+#%%
+def OTH_MLR_unc(X, max_sigma=0.2, lower_factor=0.1):
+    """
+    Positive predictions with multiplicative log-normal noise for a single input vector,
+    truncated smoothly at ~3 sigma above the base prediction.
+    """
+    # Get model coefficients
+    model = linear_ss_models[5, :]
+    coefs = model[0:5]
+    intercept = model[5]
+    r2 = model[6]  # coefficient of determination
 
+    # Ensure X is a 1D vector
+    X = np.atleast_1d(X)
+
+    # Base prediction
+    y_base = np.dot(coefs, X) + intercept
+
+    # Residual standard deviation
+    std_resid = residual_std_from_r2(r2, DB_ss["Other"])  # adjust column as needed
+
+    # Global sigma in log-space, capped
+    eps = 1e-12
+    sigma_global = min(std_resid / max(np.mean([y_base]), eps), max_sigma)
+    mu_global = -0.5 * sigma_global**2
+
+    # Truncate multiplicative factor at 3 sigma above base
+    upper_factor = np.exp(3 * sigma_global)
+
+    # Standardized truncation bounds for truncnorm
+    a, b = (np.log(lower_factor) - mu_global) / sigma_global, \
+           (np.log(upper_factor) - mu_global) / sigma_global
+
+    # Sample multiplicative factor from truncated log-normal
+    z = truncnorm.rvs(a, b, loc=mu_global, scale=sigma_global, size=1)
+
+    # Apply multiplicative noise
+    y_out = y_base * np.exp(z[0])
+
+    return float(y_out)
+#%%
 def OTH_MPR(X):
     model = MPoly_ss_models[5, :]
     coefs = model[0:20]
@@ -328,9 +529,55 @@ def mixed_estimation(X):
     f = OTH_MLR(X)
     
     return a, b, c, d, e, f
+
+def mixed_physical_estimation(X):
+    ## PRPL extra params ###
+    FT = F1 #N2O4-Aerozine   
+    TWR = 1.73 #same as Apollo
+    tank_material = M1
+    n = 4 #number of engines
+    Pressure = 20 #bars
+    OX_tank_shape = "sphere"
+    F_tank_shape = "sphere" 
+    P_tank_shape = "sphere"
+    
+    ## Power extra params ##
+    peak_power = 2000
+    average_power = 50
+    mission_duration = 10
+    heater = "non-nuclear"
+    
+    a = STR_MLR(X)
+    b = PRPL_Ramos(X[0], X[2], X[1], FT, TWR, tank_material, n, Pressure, OX_tank_shape, F_tank_shape, P_tank_shape)
+    # b = PRPL_MLR(X)
+    c = POW_SSR_battery(peak_power, average_power, mission_duration) +0.02*X[0]
+    # c = POW_MLR(X)
+    # c = POW_MPR(X)
+    d = AVIO_MLR(X)
+    e = THER_phys(average_power, mission_duration, heater, (X[0] + X[1] + X[2]))
+    # e = THER_MLR(X)
+    f = OTH_MLR(X)
+    
+    return a, b, c, d, e, f
+    
+def uncertain_estimation(X):
+    a = STR_MLR_unc(X)
+    # print("a", a)
+    b = PRPL_MLR_unc(X)
+    # print("b", b)
+    c = POW_MPR_unc(X)
+    # print("c", c)
+    d = AVIO_MLR_unc(X)
+    # print("d", d)
+    e = THER_MLR_unc(X)
+    # print("e", e)
+    f = OTH_MLR_unc(X)
+    # print("f", f)
+    
+    return a, b, c, d, e, f
 #%% The sizing Algorithm
 
-def IAC_sizing_algorithm(mp, dv, Isp, models, max_iter=50, tol=0.01):
+def IAC_sizing_algorithm(mp, dv, Isp, model, max_iter=50, tol=0.01):
     """
     Shamelessly uses a blend of eerything such that the global errors are minimised
     Choose it from main
@@ -371,10 +618,10 @@ def IAC_sizing_algorithm(mp, dv, Isp, models, max_iter=50, tol=0.01):
         try:
             new_input = np.array([lander.md, lander.mp, lander.mprop, lander.dv, lander.Isp])
             
-            # ⚠️ models() might overflow
+            # ⚠️ model() might overflow
             with warnings.catch_warnings():
                 warnings.simplefilter("error", RuntimeWarning)  # treat overflow as exception
-                a, b, c, d, e, f = models(new_input)
+                a, b, c, d, e, f = model(new_input)
         
             lander.STR    = a
             lander.PRPLSN = b
@@ -423,7 +670,110 @@ def IAC_sizing_algorithm(mp, dv, Isp, models, max_iter=50, tol=0.01):
 
     return lander
 
+#%%
+def IAC_sizing_algorithm_star(mp, dv, Isp, model, max_iter=50, tol=0.01):
+    """
+    Iterative sizing algorithm with uncertainty applied robustly:
+    - First iteration uses uncertain predictions for each subsystem.
+    - Subsequent iterations use the deterministic model for convergence.
+    - After convergence, uncertainty is re-applied once to the final subsystems.
 
+    Parameters
+    ----------
+    mp, dv, Isp : float
+        Input parameters for the lander.
+    model : callable
+        Deterministic model returning a tuple/array of six predictions (a,b,c,d,e,f).
+    max_iter : int
+        Maximum number of iterations.
+    tol : float
+        Convergence tolerance for md (based on deterministic predictions).
+    """
+    # Default uncertain functions (only used at i=0 and final step)
+    model_unc_funcs = {
+        'STR': STR_MLR_unc,
+        'PRPL': PRPL_MLR_unc,
+        'POW': POW_MPR_unc,
+        'AVIO': AVIO_MLR_unc,
+        'THER': THER_MLR_unc,
+        'OTH': OTH_MLR_unc
+    }
+
+    # Initial guesses
+    md_0 = f1_unc(mp)
+    mprop_0 = f2(mp, md_0, dv, Isp)
+    mt_0 = mp + md_0 + mprop_0
+
+    md_i = [md_0]
+    mprop_i = [mprop_0]
+
+    lander = L("Test lander 1", mp, md_0, mprop_0, mt_0, dv, Isp)
+
+    er = 1
+    i = 0
+
+    while er > tol:
+        try:
+            new_input = np.array([lander.md, lander.mp, lander.mprop, lander.dv, lander.Isp])
+
+            if i == 0:
+                # First iteration uses uncertainty
+                a = model_unc_funcs['STR'](new_input)
+                b = model_unc_funcs['PRPL'](new_input)
+                c = model_unc_funcs['POW'](new_input)
+                d = model_unc_funcs['AVIO'](new_input)
+                e = model_unc_funcs['THER'](new_input)
+                f = model_unc_funcs['OTH'](new_input)
+            else:
+                # Deterministic model drives convergence
+                preds = model(new_input)
+                if preds is None:
+                    print("Deterministic model returned None!")
+                    return None
+                a, b, c, d, e, f = preds
+
+            # Update subsystem values
+            lander.STR, lander.PRPLSN, lander.POW = a, b, c
+            lander.AVIO, lander.THER, lander.OTH = d, e, f
+
+            md_i1 = sum([a, b, c, d, e, f])
+            mprop_i1 = f2(mp, md_i1, dv, Isp)
+
+            md_i.append(md_i1)
+            mprop_i.append(mprop_i1)
+
+            lander.md = float(md_i[-1])
+            lander.mprop = float(mprop_i[-1])
+            lander.mt = float(mp + lander.md + lander.mprop)
+
+            # Convergence check uses deterministic prediction (skip noise influence)
+            if i > 0:  
+                er = abs(1 - md_i1 / md_i[i])
+            i += 1
+
+            if i > max_iter:
+                print("Divergence detected, iteration =", i)
+                return None
+
+        except (FloatingPointError, OverflowError, RuntimeWarning):
+            print("Numerical overflow / invalid prediction.")
+            return None
+
+    # ✅ After convergence, re-apply uncertainty once to final subsystem estimates
+    new_input = np.array([lander.md, lander.mp, lander.mprop, lander.dv, lander.Isp])
+    lander.STR    = model_unc_funcs['STR'](new_input)
+    lander.PRPLSN = model_unc_funcs['PRPL'](new_input)
+    lander.POW    = model_unc_funcs['POW'](new_input)
+    lander.AVIO   = model_unc_funcs['AVIO'](new_input)
+    lander.THER   = model_unc_funcs['THER'](new_input)
+    lander.OTH    = model_unc_funcs['OTH'](new_input)
+
+    # Update final md, mprop, mt with noisy subsystems
+    lander.md = sum([lander.STR, lander.PRPLSN, lander.POW, lander.AVIO, lander.THER, lander.OTH])
+    lander.mprop = f2(mp, lander.md, dv, Isp)
+    lander.mt = mp + lander.md + lander.mprop
+
+    return lander
 #%% Evalusation of the function
 def V_ers_2(data, pred, testname):
     dat = [data.mt, data.md, data.mprop, data.mp, data.STR, data.PRPLSN, data.AVIO, data.POW, data.THER, data.OTH]
@@ -552,7 +902,27 @@ def monte_carlo_IAC(n, mp_samples, dv_samples, isp_samples, Algorithm, model):
         collected[key] = values
 
     return L(results[0].name, **collected)
+#%%
+def monte_carlo_IAC_star(n, mp_samples, dv_samples, isp_samples, sizing_func, model):
+    """
+    Run Monte Carlo simulations using the iterative sizing algorithm.
+    Returns a list of successful lander objects.
+    """
+    results = []
 
+    for j in range(n):
+        mp = mp_samples[j]
+        dv = dv_samples[j]
+        isp = isp_samples[j]
+
+        lander = sizing_func(mp, dv, isp, model)
+        if lander is not None:
+            results.append(lander)
+        else:
+            print(f"Monte Carlo iteration {j} failed, skipping.")
+
+    return results
+#%%
 def plot_lander_histograms(lander, bins=30):
     """
     Plot histograms of all array-valued properties of an L object
@@ -663,23 +1033,6 @@ def plot_lander_scurves_with_percentiles(lander):
     
     plt.tight_layout()
     plt.show()
-
-#%%
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 #%% ####### DEBUGGING #############
@@ -841,3 +1194,83 @@ def diagnose_gaps_with_initial_guess_highlight(lander_mc, mp_samples, dv_samples
         print("No points fall exactly in the empty bins; gaps are truly unpopulated.")
         return None
 
+#%%
+def monte_test(func, X, n=10000, plot=True):
+    """
+    Monte Carlo simulation with multiplicative log-normal noise,
+    plotting mean and ±1σ, ±2σ, ±3σ based on log-space statistics.
+    Only values in [0, mean + 3σ_linear] are plotted.
+    """
+    results = []
+    for _ in range(n):
+        y_sim = func(X)
+        results.append(y_sim)
+
+    results = np.array(results)  # shape (n, n_samples)
+    flattened = results.flatten()
+
+    if plot:
+        # Remove negative or zero values (log-space requires positive)
+        flattened = flattened[flattened > 0]
+
+        # Log-space statistics
+        log_flat = np.log(flattened)
+        log_mean = np.mean(log_flat)
+        log_std = np.std(log_flat, ddof=1)
+
+        # Transform back to linear-space
+        mean_val = np.exp(log_mean)
+        sigma_vals = [np.exp(log_mean + k*log_std) for k in [1,2,3]]
+        sigma_vals_minus = [np.exp(log_mean - k*log_std) for k in [1,2,3]]
+
+        # Define upper limit as mean + 3σ_linear (using linear-space σ)
+        std_linear = np.std(flattened, ddof=1)
+        upper_limit = mean_val + 5*std_linear
+        flattened_plot = flattened[flattened <= upper_limit]
+
+        # Histogram
+        plt.hist(flattened_plot, bins=50, color="skyblue", edgecolor="black")
+
+        # Vertical dashed line at mean
+        plt.axvline(mean_val, color="red", linestyle="--", linewidth=2, label="Mean")
+
+        # Vertical dashed lines for ±1σ, ±2σ, ±3σ from log-space
+        alphas = [0.8, 0.5, 0.3]
+        for plus, minus, alpha in zip(sigma_vals, sigma_vals_minus, alphas):
+            if minus >= 0:
+                plt.axvline(minus, color="grey", linestyle="--", alpha=alpha)
+            if plus <= upper_limit:
+                plt.axvline(plus, color="grey", linestyle="--", alpha=alpha)
+
+        # X-axis limits
+        plt.xlim(0, upper_limit)
+
+        plt.xlabel("Predicted values with noise")
+        plt.ylabel("Frequency")
+        plt.title(f"Monte Carlo Simulation (n={n})")
+        plt.legend()
+        plt.show()
+
+    # return results
+
+#%%
+def residual_std_from_r2(r2, y):
+    """
+    Compute the residual standard deviation from R^2 and data y.
+
+    Parameters
+    ----------
+    r2 : float
+        Coefficient of determination of the model.
+    y : array-like
+        Observed data (used to compute variance of y).
+
+    Returns
+    -------
+    float
+        Standard deviation of the residuals.
+    """
+    y = np.asarray(y)
+    std_y = np.std(y, ddof=1)  # sample standard deviation
+    std_resid = std_y * np.sqrt(1 - r2)
+    return std_resid

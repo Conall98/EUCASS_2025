@@ -26,6 +26,7 @@ from sklearn import linear_model
 import math as m
 from sklearn.preprocessing import PolynomialFeatures
 import warnings
+from scipy.stats import truncnorm
 
 #%% Formatting function
 def DB_2_class(DB, i):
