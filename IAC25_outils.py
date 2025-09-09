@@ -927,6 +927,7 @@ def plot_lander_histograms(lander, bins=30):
     """
     Plot histograms of all array-valued properties of an L object
     as subplots in a single window. Ensures mp, dv, and Isp are first.
+    Adds 5th, 50th, and 95th percentile markers (better for skewed/lognormal distributions).
     
     Parameters
     ----------
@@ -956,23 +957,35 @@ def plot_lander_histograms(lander, bins=30):
     
     fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows))
     axes = np.atleast_1d(axes).ravel()
-    
+    fig.suptitle("Mass Estimation Uncertainty", fontsize=16, fontweight="bold")
+
     for i, attr in enumerate(attrs):
         values = getattr(lander, attr)
-        axes[i].hist(values, bins=bins, alpha=0.7, edgecolor="black")
+
+        # Histogram
+        axes[i].hist(values, bins=bins, alpha=0.7, color="#006658", edgecolor="black")
+
+        # Compute percentiles
+        p5, p50, p95 = np.percentile(values, [5, 50, 95])
+
+        # Draw vertical lines
+        axes[i].axvline(p5, color="red", linestyle="--", label="5th percentile")
+        axes[i].axvline(p50, color="green", linestyle="--", label="50th percentile (median)")
+        axes[i].axvline(p95, color="orange", linestyle="--", label="95th percentile")
+
+        # Formatting
         axes[i].set_title(f"{attr} ({lander.name})")
         axes[i].set_xlabel(attr)
         axes[i].set_ylabel("Frequency")
         axes[i].grid(True, linestyle="--", alpha=0.5)
-    
-    # Hide unused subplots if grid > needed
+        axes[i].legend()
+
+    # Hide unused subplots
     for j in range(i+1, len(axes)):
         axes[j].axis("off")
     
     plt.tight_layout()
     plt.show()
-
-
 #%%
 def plot_lander_scurves_with_percentiles(lander):
     """
@@ -1274,3 +1287,60 @@ def residual_std_from_r2(r2, y):
     std_y = np.std(y, ddof=1)  # sample standard deviation
     std_resid = std_y * np.sqrt(1 - r2)
     return std_resid
+
+#%%
+def plot_cost_histogram(costs, bins=30, title="Acquisition Cost Distribution"):
+    """
+    Plot histogram of acquisition cost samples with 5th, 50th, and 95th percentiles.
+    X-axis in millions of Euro.
+    """
+    costs = np.asarray(costs) / 1e6  # convert to millions
+
+    # Compute percentiles
+    p5, p50, p95 = np.percentile(costs, [5, 50, 95])
+
+    plt.figure(figsize=(8, 6))
+    plt.hist(costs, bins=bins, alpha=0.7, color="#006658", edgecolor="black")
+
+    # Add percentile markers
+    plt.axvline(p5, color="red", linestyle="--", label=f"5th: {p5:.1f} M€")
+    plt.axvline(p50, color="green", linestyle="--", label=f"50th: {p50:.1f} M€")
+    plt.axvline(p95, color="orange", linestyle="--", label=f"95th: {p95:.1f} M€")
+
+    plt.title(title, fontsize=14, fontweight="bold")
+    plt.xlabel("Acquisition Cost [Million €]")
+    plt.ylabel("Frequency")
+    plt.grid(True, linestyle="--", alpha=0.5)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+#%%
+def plot_cost_cdf(costs, title="Acquisition Cost S-curve"):
+    """
+    Plot cumulative distribution (CDF / S-curve) of acquisition cost samples,
+    with 5th, 50th, and 95th percentiles marked.
+    X-axis in millions of Euro.
+    """
+    costs = np.asarray(costs) / 1e6  # convert to millions
+    sorted_vals = np.sort(costs)
+    cdf = np.arange(1, len(sorted_vals) + 1) / len(sorted_vals)
+
+    # Percentiles
+    p5, p50, p95 = np.percentile(costs, [5, 50, 95])
+
+    # Plot CDF
+    plt.figure(figsize=(8, 6))
+    plt.plot(sorted_vals, cdf, color="blue", label="CDF")
+
+    # Add percentile markers
+    plt.axvline(p5, color="red", linestyle="--", label=f"5th: {p5:.1f} M€")
+    plt.axvline(p50, color="green", linestyle="--", label=f"50th: {p50:.1f} M€")
+    plt.axvline(p95, color="orange", linestyle="--", label=f"95th: {p95:.1f} M€")
+
+    plt.title(title, fontsize=14, fontweight="bold")
+    plt.xlabel("Acquisition Cost [Million €]")
+    plt.ylabel("Cumulative Probability")
+    plt.grid(True, linestyle="--", alpha=0.5)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
