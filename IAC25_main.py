@@ -12,7 +12,7 @@ from IAC25_outils import *
 from IAC25_DBs import *
 from cost_fos import *
 #%%
-
+#The Sydney Algorithm M
 mp = 2000
 dv = 2500
 Isp = 350
@@ -24,7 +24,7 @@ lander = IAC_sizing_algorithm(mp, dv, Isp, model)
 
 
 #%% Monte-Carlo Class 1 uncertainties
-n = 1000
+n = 10000
 mp_samples = np.random.normal(2000, 0, n)      # Monte Carlo for mp
 dv_samples = np.random.normal(2500, 0, n)   # Monte Carlo for dv
 isp_samples = np.random.normal(350, 0, n)    # Monte Carlo for Isp
@@ -33,8 +33,8 @@ lander_mc = monte_carlo_IAC(n, mp_samples, dv_samples, isp_samples, IAC_sizing_a
 
 plot_lander_histograms(lander_mc, bins=40)
 plot_lander_scurves_with_percentiles(lander_mc)
-
-#%% Monte-Carlo Class 2 uncertainties
+#%%
+# µ#%% Monte-Carlo Class 2 uncertainties
 model = mixed_estimation
 
 n = 1000
@@ -43,6 +43,7 @@ dv_samples = np.random.normal(2500, 50, n)   # Monte Carlo for dv
 isp_samples = np.random.normal(350, 5, n)    # Monte Carlo for Isp
 
 lander_mc = monte_carlo_IAC(n, mp_samples, dv_samples, isp_samples, IAC_sizing_algorithm_star, model)
+
 #%%
 plot_lander_histograms(lander_mc, bins=40)
 plot_lander_scurves_with_percentiles(lander_mc)

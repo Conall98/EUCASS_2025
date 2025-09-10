@@ -631,6 +631,7 @@ def IAC_sizing_algorithm(mp, dv, Isp, model, max_iter=50, tol=0.01):
             lander.OTH    = f
             # 
             md_i1 = sum([a, b, c, d, e, f])
+            
     
             mprop_i1 = f2(mp, md_i1, dv, Isp)
         
@@ -883,6 +884,7 @@ def EVAL(Algo_under_test, DB, models, verbose=True):
 
 #%%
 def monte_carlo_IAC(n, mp_samples, dv_samples, isp_samples, Algorithm, model):
+    start_time = time.time()
     results = []
     for i in range(n):
         lander = Algorithm(mp_samples[i],
@@ -900,7 +902,8 @@ def monte_carlo_IAC(n, mp_samples, dv_samples, isp_samples, Algorithm, model):
         # Map constructor keyword if needed
         key = {"Isp": "isp"}.get(attr, attr)
         collected[key] = values
-
+    stop_time = time.time()
+    print("tieme it tooook: ", stop_time-start_time)
     return L(results[0].name, **collected)
 #%%
 def monte_carlo_IAC_star(n, mp_samples, dv_samples, isp_samples, sizing_func, model):
